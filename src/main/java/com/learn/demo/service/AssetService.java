@@ -2,6 +2,8 @@ package com.learn.demo.service;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.learn.demo.model.Asset;
@@ -22,9 +24,8 @@ public interface AssetService {
 
 
     //for search nd filter
-    List<Asset> searchAssets(String name, String type ,String location);
+    Page<Asset> searchAssets(String name, String type, String location, Pageable pageable);
 
-    Object saveAllAssets(List<Asset> assets);
-
+    List<Asset> saveAllAssets(List<Asset> assets);
 
 }

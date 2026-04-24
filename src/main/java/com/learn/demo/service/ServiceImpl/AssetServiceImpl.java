@@ -2,6 +2,8 @@ package com.learn.demo.service.ServiceImpl;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.learn.demo.model.Asset;
@@ -19,9 +21,9 @@ public class AssetServiceImpl implements AssetService {
     //     this.repository = repository;
     // }
 
-    @Override
-public List<Asset> searchAssets(String name, String type, String location) {
-    return repository.searchAssets(name, type, location);
+@Override
+public Page<Asset> searchAssets(String name, String type, String location, Pageable pageable) {
+    return repository.searchAssets(name, type, location, pageable);
 }
 
     // CREATE
@@ -68,7 +70,8 @@ public List<Asset> searchAssets(String name, String type, String location) {
             asset.setStatus(newAsset.getStatus());
             asset.setAssetCondition(newAsset.getAssetCondition());
             asset.setNotes(newAsset.getNotes());
-            asset.setAssetTypeName(newAsset.getAssetTypeName());
+            // asset.setAssetTypeName(newAsset.getAssetTypeName());
+            asset.setAssetType(newAsset.getAssetType());
             asset.setLocationName(newAsset.getLocationName());
 
             // 💾 Save updated data
