@@ -6,26 +6,23 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import com.learn.demo.model.Asset;
+import com.learn.demo.dto.request.AssetRequestDTO;
+import com.learn.demo.dto.response.AssetResponseDTO;
 
 @Service
-
 public interface AssetService {
-    //@Autowired
-   Asset saveAsset(Asset asset);
 
-    List<Asset> getAllAssets();
+    AssetResponseDTO saveAsset(AssetRequestDTO dto);
 
-    Asset getAssetById(Long assetId);
+    List<AssetResponseDTO> saveAllAssets(List<AssetRequestDTO> dtos);
 
-    Asset updateAsset(Long assetId, Asset newAsset);
+    List<AssetResponseDTO> getAllAssets();
 
-    void deleteAsset(Long assetId);
+    AssetResponseDTO getAssetById(Long assetId);
 
+    AssetResponseDTO updateAsset(Long assetId, AssetRequestDTO dto);
 
-    //for search nd filter
-    Page<Asset> searchAssets(String name, String type, String location, Pageable pageable);
+    void deleteAsset(Long assetId, String adminName);
 
-    List<Asset> saveAllAssets(List<Asset> assets);
-
+    Page<AssetResponseDTO> searchAssets(String name, String type, String location, Pageable pageable);
 }

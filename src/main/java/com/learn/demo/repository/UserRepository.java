@@ -1,20 +1,35 @@
 package com.learn.demo.repository;
 
-import java.util.List;
+import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import com.learn.demo.model.User;
 
-@Repository
 public interface UserRepository extends JpaRepository<User, Long> {
 
-@Query("SELECT u FROM User u WHERE " +
-       "(:username IS NULL OR LOWER(u.userName) LIKE LOWER(CONCAT('%', :username, '%'))) AND " +
-       "(:role IS NULL OR LOWER(u.userRole) = LOWER(:role))")
-List<User> searchUsers(@Param("username") String username,
-                       @Param("role") String role);
+    // 🔍 Search with pagination + soft delete
+    @Query("""
+        SELECT u FROM User u
+        WHERE u.deleted = false
+        AND (:username IS NULL OR LOWER(u.userName) LIKE LOWER(CONCAT('%', :username, '%')))
+        AND (:role IS NULL OR u.userRole = :role)
+    """)
+    Page<User> searchUsers(
+        @Param("username") String username,
+        @Param("role") String role,
+        Pageable pageable
+    );
+
+    // ✅ FIXED: was findByUserEmailAndIsDeletedFalse — wrong because field is "deleted" not "isDeleted"
+    // With primitive boolean, Lombok generates isDeleted() getter but the JPA field name is "deleted"
+    // So the correct derived query uses "DeletedFalse" (matching the field name)
+    Optional<User> findByUserEmailAndDeletedFalse(String email);
+
+    // ✅ Check duplicate email
+    boolean existsByUserEmail(String email);
 }

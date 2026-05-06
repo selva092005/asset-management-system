@@ -2,22 +2,30 @@ package com.learn.demo.service;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 
-import com.learn.demo.model.User;
+import com.learn.demo.dto.request.LoginRequest;
+import com.learn.demo.dto.request.UserRequestDTO;
+import com.learn.demo.dto.response.LoginResponse;
+import com.learn.demo.dto.response.UserResponseDTO;
 
 @Service
-public interface  UserService {
+public interface UserService {
 
-    User saveUser(User user);
-    List<User> getAllUsers();
-    User getUserById(Long userId);
-    User updateUser(Long userId, User newUser);
+    UserResponseDTO saveUser(UserRequestDTO dto);
+
+    List<UserResponseDTO> saveUsers(List<UserRequestDTO> dtos);
+
+    List<UserResponseDTO> getAllUsers();
+
+    UserResponseDTO getUserById(Long userId);
+
+    UserResponseDTO updateUser(Long userId, UserRequestDTO dto);
+
     void deleteUser(Long userId);
 
-    List<User> searchUsers(String username, String role);
+    Page<UserResponseDTO> searchUsers(String username, String role, int page, int size);
 
+    LoginResponse login(LoginRequest request);
 }
-
-
-//there we just created a function,we declared this functions on serviceimpl(we use it),then access by contoller

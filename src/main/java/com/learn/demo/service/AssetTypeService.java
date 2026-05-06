@@ -2,11 +2,14 @@ package com.learn.demo.service;
 
 import java.util.List;
 
-import com.learn.demo.model.AssetType;
+import com.learn.demo.dto.request.AssetTypeRequestDTO;
+import com.learn.demo.dto.response.AssetTypeResponseDTO;
 
 public interface AssetTypeService {
 
-    List<AssetType> getAllTypes();
+    List<AssetTypeResponseDTO> getAllTypes();
 
-    AssetType saveType(AssetType type);
+    AssetTypeResponseDTO saveType(AssetTypeRequestDTO dto);
+
+    void deleteType(Long typeId);
 }
