@@ -42,6 +42,8 @@ public class AssetMapper {
         dto.setAssetCondition(asset.getAssetCondition());
         dto.setNotes(asset.getNotes());
         dto.setLocationName(asset.getLocationName());
+        dto.setAssetCode(asset.getAssetCode());
+        dto.setQrCode(asset.getQrCode());
         if (asset.getAssetType() != null) {
             dto.setTypeId(asset.getAssetType().getTypeId());       // ✅ ADDED
             dto.setTypeName(asset.getAssetType().getTypeName());

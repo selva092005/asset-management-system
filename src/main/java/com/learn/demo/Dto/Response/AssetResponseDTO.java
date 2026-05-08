@@ -19,5 +19,7 @@ public class AssetResponseDTO {
     private String notes;
     private Long typeId;       // ✅ ADDED — needed by frontend edit form to pre-select dropdown
     private String typeName;
+    private String assetCode;
+    private String qrCode;
     private String locationName;
 }

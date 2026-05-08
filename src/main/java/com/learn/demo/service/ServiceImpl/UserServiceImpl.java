@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.learn.demo.config.JwtUtil;
@@ -30,14 +31,15 @@ public class UserServiceImpl implements UserService {
     private final UserRepository repository;
     private final JwtUtil jwtUtil;
     private final UserMapper userMapper;
+    private final PasswordEncoder passwordEncoder; // ✅ BCrypt injected
 
     @Override
     public LoginResponse login(LoginRequest request) {
-        // ✅ FIXED: updated to match corrected repository method name
         User user = repository.findByUserEmailAndDeletedFalse(request.getEmail())
                 .orElseThrow(() -> new InvalidCredentialsException("Invalid email or password"));
 
-        if (!user.getUserPassword().equals(request.getPassword())) {
+        // ✅ BCrypt matches() — never decodes, just re-hashes and compares
+        if (!passwordEncoder.matches(request.getPassword(), user.getUserPassword())) {
             throw new InvalidCredentialsException("Invalid email or password");
         }
 
@@ -51,6 +53,8 @@ public class UserServiceImpl implements UserService {
             throw new DuplicateResourceException("User", "email", dto.getUserEmail());
         }
         User user = userMapper.toEntity(dto);
+        // ✅ Encode password before saving — stored as "$2a$10$xyz..." in DB
+        user.setUserPassword(passwordEncoder.encode(dto.getUserPassword()));
         return userMapper.toResponseDTO(repository.save(user));
     }
 
@@ -61,7 +65,10 @@ public class UserServiceImpl implements UserService {
                     if (repository.existsByUserEmail(dto.getUserEmail())) {
                         throw new DuplicateResourceException("User", "email", dto.getUserEmail());
                     }
-                    return userMapper.toEntity(dto);
+                    User user = userMapper.toEntity(dto);
+                    // ✅ Encode password for each user in bulk
+                    user.setUserPassword(passwordEncoder.encode(dto.getUserPassword()));
+                    return user;
                 })
                 .collect(Collectors.toList());
 
@@ -97,6 +104,8 @@ public class UserServiceImpl implements UserService {
         }
 
         userMapper.updateEntityFromDTO(dto, user);
+        // ✅ Encode updated password too
+        user.setUserPassword(passwordEncoder.encode(dto.getUserPassword()));
         return userMapper.toResponseDTO(repository.save(user));
     }
 

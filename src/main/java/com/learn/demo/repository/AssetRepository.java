@@ -23,4 +23,7 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
         @Param("location") String location,
         Pageable pageable
     );
+    
+    @Query("SELECT COUNT(a) FROM Asset a WHERE a.assetCode LIKE :prefix%")
+long countByAssetCodePrefix(@Param("prefix") String prefix);
 }

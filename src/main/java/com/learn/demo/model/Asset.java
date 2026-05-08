@@ -2,6 +2,8 @@ package com.learn.demo.model;
 
 import java.time.LocalDate;
 
+import org.hibernate.annotations.SQLRestriction;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -13,9 +15,6 @@ import jakarta.persistence.ManyToOne;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.time.LocalDate;
-import org.hibernate.annotations.SQLRestriction;
-import lombok.*;
 
 @Entity
 @SQLRestriction("deleted = false")   // 🔥 auto filter
@@ -47,6 +46,12 @@ public class Asset extends BaseEntity {
     @ManyToOne
     @JoinColumn(name = "type_id")
     private AssetType assetType;
+
+    @Column(unique = true)
+    private String assetCode;   // e.g. HP-LAP-001
+
+    @Column(length = 1000)
+    private String qrCode;      // base64 QR image string
 
     private String locationName;
 }

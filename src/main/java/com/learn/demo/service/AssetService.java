@@ -4,12 +4,10 @@ import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
 
 import com.learn.demo.dto.request.AssetRequestDTO;
 import com.learn.demo.dto.response.AssetResponseDTO;
 
-@Service
 public interface AssetService {
 
     AssetResponseDTO saveAsset(AssetRequestDTO dto);

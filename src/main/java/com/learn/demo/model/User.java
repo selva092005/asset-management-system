@@ -9,16 +9,18 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
+@Table(name = "users") // ✅ FIXED: "user" is a reserved word in MySQL
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @SQLRestriction("deleted = false")
-@SQLDelete(sql = "UPDATE user SET deleted = true WHERE user_id = ?")
+@SQLDelete(sql = "UPDATE users SET deleted = true WHERE user_id = ?") // ✅ updated table name
 public class User {
 
     @Id
@@ -34,9 +36,6 @@ public class User {
 
     private String userRole;
 
-    // ✅ Use primitive boolean (not Boolean wrapper) for consistency
-    // This makes Lombok generate isDeleted() getter, which matches
-    // the repository method findByUserEmailAndDeletedFalse()
     @Column(name = "deleted", nullable = false)
     private boolean deleted = false;
 

@@ -17,6 +17,7 @@ import com.learn.demo.model.AssetType;
 import com.learn.demo.repository.AssetRepository;
 import com.learn.demo.repository.AssetTypeRepository;
 import com.learn.demo.service.AssetService;
+import com.learn.demo.util.AssetCodeGenerator;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,17 +33,47 @@ public class AssetServiceImpl implements AssetService {
     public AssetResponseDTO saveAsset(AssetRequestDTO dto) {
         AssetType assetType = assetTypeRepository.findById(dto.getTypeId())
                 .orElseThrow(() -> new ResourceNotFoundException("AssetType", dto.getTypeId()));
+
         Asset asset = assetMapper.toEntity(dto, assetType);
+
+        // Generate smart Asset Code
+        String brandPrefix = AssetCodeGenerator.getBrandPrefix(dto.getBrand(), dto.getAssetName());
+        String typePrefix = AssetCodeGenerator.getTypePrefix(dto.getAssetName(), assetType.getTypeName());
+        String prefix = brandPrefix + "-" + typePrefix + "-";
+        long count = repository.countByAssetCodePrefix(prefix) + 1;
+        String assetCode = String.format("%s%03d", prefix, count);
+        asset.setAssetCode(assetCode);
+
+        // Generate QR code
+        String qrContent = "http://localhost:5173/home/assets/" + assetCode;
+        asset.setQrCode(AssetCodeGenerator.generateQrCodeBase64(qrContent));
+
         return assetMapper.toResponseDTO(repository.save(asset));
     }
 
+    // BULK CREATE
     @Override
     public List<AssetResponseDTO> saveAllAssets(List<AssetRequestDTO> dtos) {
         List<Asset> assets = dtos.stream()
                 .map(dto -> {
                     AssetType assetType = assetTypeRepository.findById(dto.getTypeId())
                             .orElseThrow(() -> new ResourceNotFoundException("AssetType", dto.getTypeId()));
-                    return assetMapper.toEntity(dto, assetType);
+
+                    Asset asset = assetMapper.toEntity(dto, assetType);
+
+                    // Generate smart Asset Code
+                    String brandPrefix = AssetCodeGenerator.getBrandPrefix(dto.getBrand(), dto.getAssetName());
+                    String typePrefix = AssetCodeGenerator.getTypePrefix(dto.getAssetName(), assetType.getTypeName());
+                    String prefix = brandPrefix + "-" + typePrefix + "-";
+                    long count = repository.countByAssetCodePrefix(prefix) + 1;
+                    String assetCode = String.format("%s%03d", prefix, count);
+                    asset.setAssetCode(assetCode);
+
+                    // Generate QR code
+                    String qrContent = "http://localhost:5173/home/assets/" + assetCode;
+                    asset.setQrCode(AssetCodeGenerator.generateQrCodeBase64(qrContent));
+
+                    return asset;
                 })
                 .collect(Collectors.toList());
 
