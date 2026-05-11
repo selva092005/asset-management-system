@@ -13,7 +13,6 @@ public class AssetRequestDTO {
     @NotBlank(message = "Asset name is required")
     private String assetName;
 
-    @NotBlank(message = "Serial number is required")
     private String serialNumber;
 
     private String brand;
@@ -39,4 +38,7 @@ public class AssetRequestDTO {
 
     @NotBlank(message = "Location name is required")
     private String locationName;
+
+    @NotBlank(message = "Company name is required")
+    private String companyName; // ✅ NEW — used for asset code e.g. "Hero" → "H"
 }

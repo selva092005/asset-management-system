@@ -1,7 +1,9 @@
 package com.learn.demo.service.ServiceImpl;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
@@ -29,6 +31,9 @@ public class AssetServiceImpl implements AssetService {
     private final AssetTypeRepository assetTypeRepository;
     private final AssetMapper assetMapper;
 
+    // ─────────────────────────────────────────────
+    // SINGLE SAVE
+    // ─────────────────────────────────────────────
     @Override
     public AssetResponseDTO saveAsset(AssetRequestDTO dto) {
         AssetType assetType = assetTypeRepository.findById(dto.getTypeId())
@@ -36,24 +41,26 @@ public class AssetServiceImpl implements AssetService {
 
         Asset asset = assetMapper.toEntity(dto, assetType);
 
-        // Generate smart Asset Code
-        String brandPrefix = AssetCodeGenerator.getBrandPrefix(dto.getBrand(), dto.getAssetName());
-        String typePrefix = AssetCodeGenerator.getTypePrefix(dto.getAssetName(), assetType.getTypeName());
-        String prefix = brandPrefix + "-" + typePrefix + "-";
-        long count = repository.countByAssetCodePrefix(prefix) + 1;
-        String assetCode = String.format("%s%03d", prefix, count);
+        // ✅ Auto generate asset code: H-CH-IT-00001
+        String assetCode = generateAssetCode(dto.getCompanyName(), dto.getLocationName(), assetType.getTypeName(), null);
         asset.setAssetCode(assetCode);
 
-        // Generate QR code
+        // ✅ Auto generate QR code
         String qrContent = "http://localhost:5173/home/assets/" + assetCode;
         asset.setQrCode(AssetCodeGenerator.generateQrCodeBase64(qrContent));
 
         return assetMapper.toResponseDTO(repository.save(asset));
     }
 
-    // BULK CREATE
+    // ─────────────────────────────────────────────
+    // BULK SAVE — fixed duplicate code bug
+    // ─────────────────────────────────────────────
     @Override
     public List<AssetResponseDTO> saveAllAssets(List<AssetRequestDTO> dtos) {
+
+        // track local count per prefix to avoid duplicates in bulk
+        Map<String, Long> localCounterMap = new HashMap<>();
+
         List<Asset> assets = dtos.stream()
                 .map(dto -> {
                     AssetType assetType = assetTypeRepository.findById(dto.getTypeId())
@@ -61,15 +68,16 @@ public class AssetServiceImpl implements AssetService {
 
                     Asset asset = assetMapper.toEntity(dto, assetType);
 
-                    // Generate smart Asset Code
-                    String brandPrefix = AssetCodeGenerator.getBrandPrefix(dto.getBrand(), dto.getAssetName());
-                    String typePrefix = AssetCodeGenerator.getTypePrefix(dto.getAssetName(), assetType.getTypeName());
-                    String prefix = brandPrefix + "-" + typePrefix + "-";
-                    long count = repository.countByAssetCodePrefix(prefix) + 1;
-                    String assetCode = String.format("%s%03d", prefix, count);
+                    // ✅ Pass localCounterMap to handle bulk duplicates
+                    String assetCode = generateAssetCode(
+                            dto.getCompanyName(),
+                            dto.getLocationName(),
+                            assetType.getTypeName(),
+                            localCounterMap
+                    );
                     asset.setAssetCode(assetCode);
 
-                    // Generate QR code
+                    // ✅ Auto generate QR code
                     String qrContent = "http://localhost:5173/home/assets/" + assetCode;
                     asset.setQrCode(AssetCodeGenerator.generateQrCodeBase64(qrContent));
 
@@ -83,6 +91,43 @@ public class AssetServiceImpl implements AssetService {
                 .collect(Collectors.toList());
     }
 
+    // ─────────────────────────────────────────────
+    // ASSET CODE GENERATION
+    //
+    // companyName  → "Hero"    → "H"
+    // locationName → "Chennai" → "CH"
+    // typeName     → "IT"      → "IT"
+    // prefix       → "H-CH-IT-"
+    // DB count     → 0 + 1 = 1
+    // final code   → "H-CH-IT-00001"
+    //
+    // localCounterMap: used in bulk save to avoid duplicates
+    // pass null for single save
+    // ─────────────────────────────────────────────
+    private String generateAssetCode(String companyName, String locationName, String typeName,
+                                     Map<String, Long> localCounterMap) {
+
+        String prefix = AssetCodeGenerator.buildPrefix(companyName, locationName, typeName);
+
+        // get DB count for this prefix
+        long dbCount = repository.countByAssetCodePrefix(prefix);
+
+        long count;
+        if (localCounterMap != null) {
+            // bulk save — increment local counter per prefix
+            localCounterMap.merge(prefix, 1L, Long::sum);
+            count = dbCount + localCounterMap.get(prefix);
+        } else {
+            // single save
+            count = dbCount + 1;
+        }
+
+        return String.format("%s%05d", prefix, count);
+    }
+
+    // ─────────────────────────────────────────────
+    // GET ALL
+    // ─────────────────────────────────────────────
     @Override
     public List<AssetResponseDTO> getAllAssets() {
         return repository.findAll()
@@ -91,6 +136,9 @@ public class AssetServiceImpl implements AssetService {
                 .collect(Collectors.toList());
     }
 
+    // ─────────────────────────────────────────────
+    // GET BY ID
+    // ─────────────────────────────────────────────
     @Override
     public AssetResponseDTO getAssetById(Long assetId) {
         Asset asset = repository.findById(assetId)
@@ -98,6 +146,9 @@ public class AssetServiceImpl implements AssetService {
         return assetMapper.toResponseDTO(asset);
     }
 
+    // ─────────────────────────────────────────────
+    // UPDATE
+    // ─────────────────────────────────────────────
     @Override
     public AssetResponseDTO updateAsset(Long assetId, AssetRequestDTO dto) {
         Asset asset = repository.findById(assetId)
@@ -113,6 +164,9 @@ public class AssetServiceImpl implements AssetService {
         return assetMapper.toResponseDTO(repository.save(asset));
     }
 
+    // ─────────────────────────────────────────────
+    // DELETE (soft delete)
+    // ─────────────────────────────────────────────
     @Override
     public void deleteAsset(Long assetId, String adminName) {
         Asset asset = repository.findById(assetId)
@@ -124,6 +178,9 @@ public class AssetServiceImpl implements AssetService {
         repository.save(asset);
     }
 
+    // ─────────────────────────────────────────────
+    // SEARCH
+    // ─────────────────────────────────────────────
     @Override
     public Page<AssetResponseDTO> searchAssets(String name, String type, String location, Pageable pageable) {
         return repository.searchAssets(name, type, location, pageable)

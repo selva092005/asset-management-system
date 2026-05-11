@@ -23,6 +23,9 @@ public class UserRequestDTO {
     private String userPassword;
 
     @NotBlank(message = "Role is required")
-    @Pattern(regexp = "ADMIN|USER", message = "Role must be ADMIN or USER")
+    @Pattern(
+        regexp = "MANAGER|ADMIN|USER",
+        message = "Role must be MANAGER, ADMIN or USER"
+    )
     private String userRole;
 }

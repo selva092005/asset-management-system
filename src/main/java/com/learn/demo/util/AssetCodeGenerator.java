@@ -9,88 +9,90 @@ import com.google.zxing.qrcode.QRCodeWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Base64;
-import java.util.Map;
 
 public class AssetCodeGenerator {
 
-    private static final Map<String, String> BRAND_MAP = Map.ofEntries(
-        Map.entry("dell", "DELL"),
-        Map.entry("hp", "HP"),
-        Map.entry("hewlett", "HP"),
-        Map.entry("lenovo", "LEN"),
-        Map.entry("asus", "ASUS"),
-        Map.entry("samsung", "SAM"),
-        Map.entry("lg", "LG"),
-        Map.entry("acer", "ACR"),
-        Map.entry("apple", "APL"),
-        Map.entry("sony", "SNY"),
-        Map.entry("epson", "EPS"),
-        Map.entry("canon", "CAN"),
-        Map.entry("brother", "BRO"),
-        Map.entry("logitech", "LOG"),
-        Map.entry("microsoft", "MSF"),
-        Map.entry("cisco", "CSC"),
-        Map.entry("tplink", "TPL"),
-        Map.entry("tp-link", "TPL")
-    );
-
-    private static final Map<String, String> TYPE_MAP = Map.ofEntries(
-        Map.entry("laptop", "LAP"),
-        Map.entry("notebook", "LAP"),
-        Map.entry("monitor", "MON"),
-        Map.entry("display", "MON"),
-        Map.entry("printer", "PRN"),
-        Map.entry("mobile", "MOB"),
-        Map.entry("phone", "MOB"),
-        Map.entry("tablet", "TAB"),
-        Map.entry("ipad", "TAB"),
-        Map.entry("keyboard", "KBD"),
-        Map.entry("mouse", "MOU"),
-        Map.entry("router", "NET"),
-        Map.entry("switch", "NET"),
-        Map.entry("desktop", "DSK"),
-        Map.entry("pc", "DSK"),
-        Map.entry("camera", "CAM"),
-        Map.entry("webcam", "CAM"),
-        Map.entry("scanner", "SCN"),
-        Map.entry("chair", "FRN"),
-        Map.entry("desk", "FRN"),
-        Map.entry("table", "FRN"),
-        Map.entry("furniture", "FRN"),
-        Map.entry("server", "SRV"),
-        Map.entry("headset", "AUD"),
-        Map.entry("headphone", "AUD"),
-        Map.entry("projector", "PRJ")
-    );
-
-    public static String getBrandPrefix(String brand, String assetName) {
-        String search = (brand != null ? brand : assetName).toLowerCase();
-        for (Map.Entry<String, String> entry : BRAND_MAP.entrySet()) {
-            if (search.contains(entry.getKey())) return entry.getValue();
-        }
-        // fallback: first word of brand or assetName uppercased max 4 chars
-        String fallback = (brand != null && !brand.isBlank()) ? brand : assetName;
-        String[] parts = fallback.trim().split("\\s+");
-        return parts[0].toUpperCase().substring(0, Math.min(4, parts[0].length()));
+    // ─────────────────────────────────────────────
+    // NORMALIZE — handle any case/space/special char
+    // "Hero "  → "hero"
+    // "HERO"   → "hero"
+    // "H-ero"  → "hero"
+    // ─────────────────────────────────────────────
+    public static String normalize(String input) {
+        if (input == null || input.isBlank()) return "";
+        return input.trim()
+                    .toLowerCase()
+                    .replaceAll("\\s+", " ")
+                    .replaceAll("[^a-z0-9 ]", "");
     }
 
-    public static String getTypePrefix(String assetName, String typeName) {
-        String search = (assetName + " " + (typeName != null ? typeName : "")).toLowerCase();
-        for (Map.Entry<String, String> entry : TYPE_MAP.entrySet()) {
-            if (search.contains(entry.getKey())) return entry.getValue();
-        }
-        // fallback: last word of assetName max 3 chars
-        String[] parts = assetName.trim().split("\\s+");
-        String last = parts[parts.length - 1];
-        return last.toUpperCase().substring(0, Math.min(3, last.length()));
+    // ─────────────────────────────────────────────
+    // COMPANY CODE — first letter of company name
+    // "Hero"    → "H"
+    // "Tata"    → "T"
+    // "Wipro"   → "W"
+    // "Infosys" → "I"
+    // ─────────────────────────────────────────────
+    public static String getCompanyCode(String companyName) {
+        if (companyName == null || companyName.isBlank()) return "X";
+        String clean = normalize(companyName);
+        return clean.substring(0, 1).toUpperCase();
     }
 
-    public static String buildAssetCode(String brand, String assetName, String typeName, long count) {
-        String brandPrefix = getBrandPrefix(brand, assetName);
-        String typePrefix = getTypePrefix(assetName, typeName);
-        return String.format("%s-%s-%03d", brandPrefix, typePrefix, count);
+    // ─────────────────────────────────────────────
+    // LOCATION CODE — first 2 letters of location name
+    // "Chennai"     → "CH"
+    // "Coimbatore"  → "CO"
+    // "Hyderabad"   → "HY"
+    // "Bangalore"   → "BA"
+    // "Mumbai"      → "MU"
+    // ─────────────────────────────────────────────
+    public static String getLocationCode(String locationName) {
+        if (locationName == null || locationName.isBlank()) return "XX";
+        String clean = normalize(locationName).replaceAll(" ", "");
+        return clean.substring(0, Math.min(2, clean.length())).toUpperCase();
     }
 
+    // ─────────────────────────────────────────────
+    // TYPE CODE — first 2-3 letters from DB typeName
+    // "IT"        → "IT"
+    // "Mobile"    → "MOB"
+    // "Furniture" → "FUR"
+    // "Equipment" → "EQP"
+    // ─────────────────────────────────────────────
+    public static String getTypeCode(String typeName) {
+        if (typeName == null || typeName.isBlank()) return "GEN";
+        String clean = typeName.trim().toUpperCase().replaceAll("\\s+", "");
+        return clean.substring(0, Math.min(3, clean.length()));
+    }
+
+    // ─────────────────────────────────────────────
+    // BUILD PREFIX — company + location + type
+    // "Hero" + "Chennai" + "IT"        → "H-CH-IT-"
+    // "Hero" + "Chennai" + "Mobile"    → "H-CH-MOB-"
+    // "Hero" + "Chennai" + "Furniture" → "H-CH-FUR-"
+    // "Tata" + "Hyderabad" + "IT"      → "T-HY-IT-"
+    // ─────────────────────────────────────────────
+    public static String buildPrefix(String companyName, String locationName, String typeName) {
+        String companyCode  = getCompanyCode(companyName);
+        String locationCode = getLocationCode(locationName);
+        String typeCode     = getTypeCode(typeName);
+        return companyCode + "-" + locationCode + "-" + typeCode + "-";
+    }
+
+    // ─────────────────────────────────────────────
+    // BUILD ASSET CODE — prefix + 5 digit count
+    // prefix="H-CH-IT-", count=1  → "H-CH-IT-00001"
+    // prefix="H-CH-IT-", count=38 → "H-CH-IT-00038"
+    // ─────────────────────────────────────────────
+    public static String buildAssetCode(String companyName, String locationName, String typeName, long count) {
+        String prefix = buildPrefix(companyName, locationName, typeName);
+        return String.format("%s%05d", prefix, count);
+    }
+
+    // ─────────────────────────────────────────────
+    // QR CODE — no change
+    // ─────────────────────────────────────────────
     public static String generateQrCodeBase64(String content) {
         try {
             QRCodeWriter writer = new QRCodeWriter();
