@@ -41,4 +41,6 @@ public class AssetRequestDTO {
 
     @NotBlank(message = "Company name is required")
     private String companyName; // ✅ NEW — used for asset code e.g. "Hero" → "H"
+
+    private String imagePath;   // ✅ FIX: file name returned by /api/files/upload, saved to DB
 }

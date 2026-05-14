@@ -41,11 +41,16 @@ public class AssetServiceImpl implements AssetService {
 
         Asset asset = assetMapper.toEntity(dto, assetType);
 
-        // ✅ Auto generate asset code: H-CH-IT-00001
+        // Convert status and assetCondition to UPPERCASE
+        asset.setStatus(dto.getStatus().toUpperCase());
+        asset.setAssetCondition(dto.getAssetCondition() != null
+                ? dto.getAssetCondition().toUpperCase() : null);
+
+        // Auto-generate asset code using MAX sequence (safe after soft-deletes)
         String assetCode = generateAssetCode(dto.getCompanyName(), dto.getLocationName(), assetType.getTypeName(), null);
         asset.setAssetCode(assetCode);
 
-        // ✅ Auto generate QR code
+        // Auto-generate QR code
         String qrContent = "http://localhost:5173/home/assets/" + assetCode;
         asset.setQrCode(AssetCodeGenerator.generateQrCodeBase64(qrContent));
 
@@ -53,13 +58,13 @@ public class AssetServiceImpl implements AssetService {
     }
 
     // ─────────────────────────────────────────────
-    // BULK SAVE — fixed duplicate code bug
+    // BULK SAVE
     // ─────────────────────────────────────────────
     @Override
     public List<AssetResponseDTO> saveAllAssets(List<AssetRequestDTO> dtos) {
 
-        // track local count per prefix to avoid duplicates in bulk
-        Map<String, Long> localCounterMap = new HashMap<>();
+        // Track local offset per prefix to avoid duplicates within the same bulk batch
+        Map<String, Long> localOffsetMap = new HashMap<>();
 
         List<Asset> assets = dtos.stream()
                 .map(dto -> {
@@ -68,16 +73,21 @@ public class AssetServiceImpl implements AssetService {
 
                     Asset asset = assetMapper.toEntity(dto, assetType);
 
-                    // ✅ Pass localCounterMap to handle bulk duplicates
+                    // Convert status and assetCondition to UPPERCASE
+                    asset.setStatus(dto.getStatus().toUpperCase());
+                    asset.setAssetCondition(dto.getAssetCondition() != null
+                            ? dto.getAssetCondition().toUpperCase() : null);
+
+                    // Pass localOffsetMap to handle duplicates within the bulk batch
                     String assetCode = generateAssetCode(
                             dto.getCompanyName(),
                             dto.getLocationName(),
                             assetType.getTypeName(),
-                            localCounterMap
+                            localOffsetMap
                     );
                     asset.setAssetCode(assetCode);
 
-                    // ✅ Auto generate QR code
+                    // Auto-generate QR code
                     String qrContent = "http://localhost:5173/home/assets/" + assetCode;
                     asset.setQrCode(AssetCodeGenerator.generateQrCodeBase64(qrContent));
 
@@ -93,36 +103,28 @@ public class AssetServiceImpl implements AssetService {
 
     // ─────────────────────────────────────────────
     // ASSET CODE GENERATION
-    //
-    // companyName  → "Hero"    → "H"
-    // locationName → "Chennai" → "CH"
-    // typeName     → "IT"      → "IT"
-    // prefix       → "H-CH-IT-"
-    // DB count     → 0 + 1 = 1
-    // final code   → "H-CH-IT-00001"
-    //
-    // localCounterMap: used in bulk save to avoid duplicates
-    // pass null for single save
+    // Uses MAX sequence (not COUNT) so soft-deleted assets never
+    // cause duplicate codes.
     // ─────────────────────────────────────────────
     private String generateAssetCode(String companyName, String locationName, String typeName,
-                                     Map<String, Long> localCounterMap) {
+                                     Map<String, Long> localOffsetMap) {
 
         String prefix = AssetCodeGenerator.buildPrefix(companyName, locationName, typeName);
+        int prefixLen = prefix.length();
 
-        // get DB count for this prefix
-        long dbCount = repository.countByAssetCodePrefix(prefix);
+        // MAX of the trailing numeric part across ALL rows (including deleted)
+        long maxSeq = repository.findMaxSequenceByPrefix(prefix, prefixLen);
 
-        long count;
-        if (localCounterMap != null) {
-            // bulk save — increment local counter per prefix
-            localCounterMap.merge(prefix, 1L, Long::sum);
-            count = dbCount + localCounterMap.get(prefix);
+        long nextSeq;
+        if (localOffsetMap != null) {
+            // Each item in the bulk batch bumps the local offset for this prefix
+            localOffsetMap.merge(prefix, 1L, Long::sum);
+            nextSeq = maxSeq + localOffsetMap.get(prefix);
         } else {
-            // single save
-            count = dbCount + 1;
+            nextSeq = maxSeq + 1;
         }
 
-        return String.format("%s%05d", prefix, count);
+        return String.format("%s%05d", prefix, nextSeq);
     }
 
     // ─────────────────────────────────────────────
@@ -161,6 +163,12 @@ public class AssetServiceImpl implements AssetService {
         }
 
         assetMapper.updateEntityFromDTO(dto, asset, assetType);
+
+        // Convert status and assetCondition to UPPERCASE on update too
+        asset.setStatus(dto.getStatus().toUpperCase());
+        asset.setAssetCondition(dto.getAssetCondition() != null
+                ? dto.getAssetCondition().toUpperCase() : null);
+
         return assetMapper.toResponseDTO(repository.save(asset));
     }
 

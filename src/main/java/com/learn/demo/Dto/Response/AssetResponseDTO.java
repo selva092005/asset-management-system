@@ -22,4 +22,5 @@ public class AssetResponseDTO {
     private String assetCode;
     private String qrCode;
     private String locationName;
+    private String imagePath;   // file name stored in uploads/ folder, e.g. "abc123.jpg"
 }

@@ -1,10 +1,11 @@
 package com.learn.demo.mapper;
 
+import org.springframework.stereotype.Component;
+
 import com.learn.demo.dto.request.AssetRequestDTO;
 import com.learn.demo.dto.response.AssetResponseDTO;
 import com.learn.demo.model.Asset;
 import com.learn.demo.model.AssetType;
-import org.springframework.stereotype.Component;
 
 @Component
 public class AssetMapper {
@@ -23,6 +24,7 @@ public class AssetMapper {
         asset.setAssetCondition(dto.getAssetCondition());
         asset.setNotes(dto.getNotes());
         asset.setLocationName(dto.getLocationName());
+        asset.setImagePath(dto.getImagePath());  // ✅ FIX: save uploaded image file name to DB
         asset.setAssetType(assetType);
         return asset;
     }
@@ -44,6 +46,7 @@ public class AssetMapper {
         dto.setLocationName(asset.getLocationName());
         dto.setAssetCode(asset.getAssetCode());
         dto.setQrCode(asset.getQrCode());
+        dto.setImagePath(asset.getImagePath());  // ✅ FIX: return imagePath so frontend can display the image
         if (asset.getAssetType() != null) {
             dto.setTypeId(asset.getAssetType().getTypeId());       // ✅ ADDED
             dto.setTypeName(asset.getAssetType().getTypeName());
@@ -64,6 +67,9 @@ public class AssetMapper {
         asset.setAssetCondition(dto.getAssetCondition());
         asset.setNotes(dto.getNotes());
         asset.setLocationName(dto.getLocationName());
+        if (dto.getImagePath() != null) {
+            asset.setImagePath(dto.getImagePath());  // ✅ FIX: update image on edit (only if new one provided)
+        }
         if (assetType != null) {
             asset.setAssetType(assetType);
         }

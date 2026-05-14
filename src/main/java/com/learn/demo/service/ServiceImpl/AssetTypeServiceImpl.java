@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import com.learn.demo.dto.request.AssetTypeRequestDTO;
 import com.learn.demo.dto.response.AssetTypeResponseDTO;
+import com.learn.demo.exception.DuplicateResourceException;
 import com.learn.demo.exception.ResourceNotFoundException;
 import com.learn.demo.mapper.AssetTypeMapper;
 import com.learn.demo.model.AssetType;
@@ -32,6 +33,9 @@ public class AssetTypeServiceImpl implements AssetTypeService {
 
     @Override
     public AssetTypeResponseDTO saveType(AssetTypeRequestDTO dto) {
+        if (repository.existsByTypeNameIgnoreCase(dto.getTypeName())) {
+            throw new DuplicateResourceException("AssetType", "name", dto.getTypeName());
+        }
         AssetType assetType = assetTypeMapper.toEntity(dto);
         return assetTypeMapper.toResponseDTO(repository.save(assetType));
     }

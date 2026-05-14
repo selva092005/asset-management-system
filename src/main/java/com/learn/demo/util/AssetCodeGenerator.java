@@ -1,14 +1,14 @@
 package com.learn.demo.util;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.Base64;
+
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.WriterException;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.Base64;
 
 public class AssetCodeGenerator {
 
@@ -33,11 +33,33 @@ public class AssetCodeGenerator {
     // "Wipro"   → "W"
     // "Infosys" → "I"
     // ─────────────────────────────────────────────
-    public static String getCompanyCode(String companyName) {
-        if (companyName == null || companyName.isBlank()) return "X";
-        String clean = normalize(companyName);
-        return clean.substring(0, 1).toUpperCase();
+// ─────────────────────────────────────────────
+// COMPANY CODE — first letter of each word
+// "Cavin Kare"      → "CK"
+// "Cavin Infotech"  → "CI"
+// "Tech Nova"       → "TN"
+// "Skyline"         → "S"
+// ─────────────────────────────────────────────
+public static String getCompanyCode(String companyName) {
+
+    if (companyName == null || companyName.isBlank()) {
+        return "XX";
     }
+
+    String clean = normalize(companyName);
+
+    String[] words = clean.split("\\s+");
+
+    StringBuilder code = new StringBuilder();
+
+    for (String word : words) {
+        if (!word.isBlank()) {
+            code.append(Character.toUpperCase(word.charAt(0)));
+        }
+    }
+
+    return code.toString();
+}
 
     // ─────────────────────────────────────────────
     // LOCATION CODE — first 2 letters of location name

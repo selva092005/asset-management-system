@@ -3,18 +3,31 @@ package com.learn.demo.config;
 import java.security.Key;
 import java.util.Date;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 
 @Component
 public class JwtUtil {
 
-    // 🔐 Strong secret key (at least 256-bit)
-    private final String SECRET = "mysecretkeymysecretkeymysecretkey12345";
+    // FIX 3: Read secret from application.properties instead of hardcoding
+    @Value("${jwt.secret}")
+    private String secret;
 
-    private final Key key = Keys.hmacShaKeyFor(SECRET.getBytes());
+    private Key key;
+
+    // FIX 3: Build key after @Value is injected
+    @PostConstruct
+    public void init() {
+        this.key = Keys.hmacShaKeyFor(secret.getBytes());
+    }
 
     // ✅ Generate Token
     public String generateToken(String email, String role) {

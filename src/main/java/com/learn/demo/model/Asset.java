@@ -17,7 +17,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@SQLRestriction("deleted = false")   // 🔥 auto filter
+@SQLRestriction("deleted = false")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -48,10 +48,13 @@ public class Asset extends BaseEntity {
     private AssetType assetType;
 
     @Column(unique = true)
-    private String assetCode;   // e.g. HP-LAP-001
+    private String assetCode;
 
-    @Column(length = 1000)
-    private String qrCode;      // base64 QR image string
+    @Column(columnDefinition = "TEXT")
+    private String qrCode;
 
     private String locationName;
+
+    // Image file name — e.g. "asset-1.jpg"
+    private String imagePath;
 }

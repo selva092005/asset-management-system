@@ -2,6 +2,7 @@ package com.learn.demo.service.ServiceImpl;
 
 import com.learn.demo.dto.request.LocationRequestDTO;
 import com.learn.demo.dto.response.LocationResponseDTO;
+import com.learn.demo.exception.DuplicateResourceException;
 import com.learn.demo.exception.ResourceNotFoundException;
 import com.learn.demo.model.Company;
 import com.learn.demo.model.Location;
@@ -26,6 +27,13 @@ public class LocationServiceImpl implements LocationService {
     public LocationResponseDTO saveLocation(LocationRequestDTO dto) {
         Company company = companyRepository.findById(dto.getCompanyId())
                 .orElseThrow(() -> new ResourceNotFoundException("Company", dto.getCompanyId()));
+
+        // Prevent duplicate location name within the same company
+        if (repository.existsByLocationNameIgnoreCaseAndCompany_CompanyId(
+                dto.getLocationName(), dto.getCompanyId())) {
+            throw new DuplicateResourceException("Location", "name", dto.getLocationName());
+        }
+
         Location location = new Location();
         location.setLocationName(dto.getLocationName());
         location.setCompany(company);
@@ -58,6 +66,17 @@ public class LocationServiceImpl implements LocationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Location", id));
         Company company = companyRepository.findById(dto.getCompanyId())
                 .orElseThrow(() -> new ResourceNotFoundException("Company", dto.getCompanyId()));
+
+        // Check for duplicate only if the name is actually changing
+        boolean nameChanged = !location.getLocationName().equalsIgnoreCase(dto.getLocationName());
+        boolean companyChanged = !location.getCompany().getCompanyId().equals(dto.getCompanyId());
+
+        if ((nameChanged || companyChanged) &&
+            repository.existsByLocationNameIgnoreCaseAndCompany_CompanyId(
+                    dto.getLocationName(), dto.getCompanyId())) {
+            throw new DuplicateResourceException("Location", "name", dto.getLocationName());
+        }
+
         location.setLocationName(dto.getLocationName());
         location.setCompany(company);
         return toResponse(repository.save(location));

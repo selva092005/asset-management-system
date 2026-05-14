@@ -23,7 +23,25 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
         @Param("location") String location,
         Pageable pageable
     );
-    
-    @Query("SELECT COUNT(a) FROM Asset a WHERE a.assetCode LIKE :prefix%")
-long countByAssetCodePrefix(@Param("prefix") String prefix);
+
+    /**
+     * Find the MAX numeric suffix for a given prefix (e.g. "H-CH-IT-").
+     * Uses native SQL to bypass @SQLRestriction so deleted assets are included,
+     * preventing duplicate asset codes after soft-deletes.
+     *
+     * MySQL: CAST(SUBSTR(...) AS UNSIGNED) extracts the trailing number.
+     * Returns 0 if no matching row exists (COALESCE).
+     */
+    @Query(value = """
+        SELECT COALESCE(
+            MAX(CAST(SUBSTR(asset_code, :prefixLen + 1) AS UNSIGNED)),
+            0
+        )
+        FROM asset
+        WHERE asset_code LIKE CONCAT(:prefix, '%')
+        """, nativeQuery = true)
+    long findMaxSequenceByPrefix(
+        @Param("prefix") String prefix,
+        @Param("prefixLen") int prefixLen
+    );
 }

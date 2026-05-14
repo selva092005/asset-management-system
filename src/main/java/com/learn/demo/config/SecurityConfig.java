@@ -1,15 +1,17 @@
 package com.learn.demo.config;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import lombok.RequiredArgsConstructor;
 
 @Configuration
 @RequiredArgsConstructor
@@ -26,8 +28,11 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
         http
-            .cors(Customizer.withDefaults())  // ✅ FIX 1: CORS runs before Security blocks
+            .cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.disable())
+            // Stateless — no HTTP sessions for a JWT app
+            .sessionManagement(session ->
+                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
 
                 .requestMatchers(
@@ -37,6 +42,11 @@ public class SecurityConfig {
                 ).permitAll()
 
                 .requestMatchers("/api/auth/**").permitAll()
+
+                // ✅ FIX: Images are served via <img src="..."> — the browser never sends
+                // an Authorization header for image requests, so this must be public.
+                // Upload (POST) still requires authentication.
+                .requestMatchers(HttpMethod.GET, "/api/files/**").permitAll()
 
                 .requestMatchers(HttpMethod.GET,    "/api/companies/**").hasAnyRole("MANAGER", "ADMIN")
                 .requestMatchers(HttpMethod.POST,   "/api/companies/**").hasRole("MANAGER")
@@ -57,6 +67,10 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST,   "/api/assets/**").hasAnyRole("MANAGER", "ADMIN")
                 .requestMatchers(HttpMethod.PUT,    "/api/assets/**").hasAnyRole("MANAGER", "ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/assets/**").hasRole("MANAGER")
+
+                // Location history: anyone authenticated can view; ADMIN/MANAGER can move
+                .requestMatchers(HttpMethod.GET,    "/api/asset-history/**").hasAnyRole("MANAGER", "ADMIN", "USER")
+                .requestMatchers(HttpMethod.POST,   "/api/asset-history/**").hasAnyRole("MANAGER", "ADMIN")
 
                 .requestMatchers("/api/users/**").hasRole("MANAGER")
 

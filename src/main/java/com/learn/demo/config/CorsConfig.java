@@ -11,11 +11,19 @@ import org.springframework.web.filter.CorsFilter;
 @Configuration
 public class CorsConfig {
 
-    // ✅ FIXED: only one CORS bean — removed conflicting WebMvcConfigurer
     @Bean
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("http://localhost:5173", "https://*.devtunnels.ms"));
+
+        // FIX 4: Added common frontend ports so CORS doesn't block your frontend
+        config.setAllowedOriginPatterns(List.of(
+            "http://localhost:5173",   // Vite (React default)
+            "http://localhost:3000",   // React CRA default
+            "http://localhost:4200",   // Angular default
+            "http://localhost:8081",   // Other local ports
+            "https://*.devtunnels.ms"  // Dev tunnels
+        ));
+
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
