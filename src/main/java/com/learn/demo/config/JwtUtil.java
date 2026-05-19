@@ -17,43 +17,58 @@ import jakarta.annotation.PostConstruct;
 @Component
 public class JwtUtil {
 
-    // FIX 3: Read secret from application.properties instead of hardcoding
     @Value("${jwt.secret}")
     private String secret;
 
-    private Key key;
+    @Value("${jwt.refresh-secret}")
+    private String refreshSecret;
 
-    // FIX 3: Build key after @Value is injected
+    private Key key;
+    private Key refreshKey;
+
     @PostConstruct
     public void init() {
         this.key = Keys.hmacShaKeyFor(secret.getBytes());
+        this.refreshKey = Keys.hmacShaKeyFor(refreshSecret.getBytes());
     }
 
-    // ✅ Generate Token
+    // Access token — 1 hour
     public String generateToken(String email, String role) {
         return Jwts.builder()
                 .setSubject(email)
                 .claim("role", role)
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + 86400000)) // 1 day
+                .setExpiration(new Date(System.currentTimeMillis() + 3600000))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    // ✅ Extract Email
+    // Refresh token — 7 days
+    public String generateRefreshToken(String email) {
+        return Jwts.builder()
+                .setSubject(email)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 604800000L))
+                .signWith(refreshKey, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
     public String extractEmail(String token) {
-        return getClaims(token).getSubject();
+        return getClaims(token, key).getSubject();
     }
 
-    // ✅ Extract Role
     public String extractRole(String token) {
-        return getClaims(token).get("role", String.class);
+        return getClaims(token, key).get("role", String.class);
     }
 
-    // ✅ Validate Token
+    // Extract email from refresh token
+    public String extractEmailFromRefreshToken(String token) {
+        return getClaims(token, refreshKey).getSubject();
+    }
+
     public boolean isTokenValid(String token) {
         try {
-            getClaims(token);
+            getClaims(token, key);
             return true;
         } catch (ExpiredJwtException e) {
             throw new RuntimeException("Token expired");
@@ -62,10 +77,20 @@ public class JwtUtil {
         }
     }
 
-    // 🔍 Common method
-    private Claims getClaims(String token) {
+    public boolean isRefreshTokenValid(String token) {
+        try {
+            getClaims(token, refreshKey);
+            return true;
+        } catch (ExpiredJwtException e) {
+            throw new RuntimeException("Refresh token expired");
+        } catch (JwtException e) {
+            throw new RuntimeException("Invalid refresh token");
+        }
+    }
+
+    private Claims getClaims(String token, Key signingKey) {
         return Jwts.parserBuilder()
-                .setSigningKey(key)
+                .setSigningKey(signingKey)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();

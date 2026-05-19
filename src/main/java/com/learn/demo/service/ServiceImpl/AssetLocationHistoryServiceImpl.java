@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.learn.demo.dto.request.MoveAssetRequestDTO;
 import com.learn.demo.dto.response.AssetLocationHistoryResponseDTO;
+import com.learn.demo.exception.BusinessRuleException;
 import com.learn.demo.exception.ResourceNotFoundException;
 import com.learn.demo.model.Asset;
 import com.learn.demo.model.AssetLocationHistory;
@@ -36,7 +37,17 @@ public class AssetLocationHistoryServiceImpl implements AssetLocationHistoryServ
         Asset asset = assetRepository.findById(dto.getAssetId())
                 .orElseThrow(() -> new ResourceNotFoundException("Asset", dto.getAssetId()));
 
-        String oldLocation = asset.getLocationName(); // could be null for a brand-new asset
+        // Block moving disposed or damaged assets
+        String status = asset.getStatus();
+        if ("DISPOSED".equalsIgnoreCase(status) || "DAMAGED".equalsIgnoreCase(status)) {
+            throw new BusinessRuleException("Cannot move a " + status.toLowerCase() + " asset.");
+        }
+
+        if (dto.getNewLocation().equalsIgnoreCase(asset.getLocationName())) {
+            throw new BusinessRuleException("Asset is already at location: " + dto.getNewLocation());
+        }
+
+        String oldLocation = asset.getLocationName();
 
         // 2. ① Save history row
         AssetLocationHistory history = new AssetLocationHistory();
@@ -63,10 +74,9 @@ public class AssetLocationHistoryServiceImpl implements AssetLocationHistoryServ
     @Override
     public List<AssetLocationHistoryResponseDTO> getHistoryByAssetId(Long assetId) {
 
-        // Confirm asset exists
-        if (!assetRepository.existsById(assetId)) {
-            throw new ResourceNotFoundException("Asset", assetId);
-        }
+        // Confirm asset exists and is not soft-deleted
+        assetRepository.findById(assetId)
+                .orElseThrow(() -> new ResourceNotFoundException("Asset", assetId));
 
         return historyRepository
                 .findByAsset_AssetIdOrderByMovedAtDesc(assetId)

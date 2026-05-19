@@ -11,5 +11,5 @@ public interface AssetTypeService {
 
     AssetTypeResponseDTO saveType(AssetTypeRequestDTO dto);
 
-    void deleteType(Long typeId);
+    void deleteType(Long typeId, String adminName);
 }

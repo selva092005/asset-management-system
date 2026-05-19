@@ -83,10 +83,12 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    public void deleteLocation(Long id) {
+    public void deleteLocation(Long id, String adminName) {
         Location location = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Location", id));
         location.setDeleted(true);
+        location.setDeletedBy(adminName);
+        location.setDeletedAt(java.time.LocalDateTime.now());
         repository.save(location);
     }
 

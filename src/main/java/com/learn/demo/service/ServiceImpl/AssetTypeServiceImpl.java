@@ -41,10 +41,12 @@ public class AssetTypeServiceImpl implements AssetTypeService {
     }
 
     @Override
-    public void deleteType(Long typeId) {
+    public void deleteType(Long typeId, String adminName) {
         AssetType type = repository.findById(typeId)
                 .orElseThrow(() -> new ResourceNotFoundException("AssetType", typeId));
         type.setDeleted(true);
+        type.setDeletedBy(adminName);
+        type.setDeletedAt(java.time.LocalDateTime.now());
         repository.save(type);
     }
 }

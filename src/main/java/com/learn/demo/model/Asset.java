@@ -14,11 +14,13 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 @Entity
 @SQLRestriction("deleted = false")
 @Data
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class Asset extends BaseEntity {
@@ -27,6 +29,7 @@ public class Asset extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Schema(accessMode = Schema.AccessMode.READ_ONLY)
     @Column(name = "asset_id")
+    @EqualsAndHashCode.Include
     private Long assetId;
 
     private String assetName;
@@ -54,6 +57,8 @@ public class Asset extends BaseEntity {
     private String qrCode;
 
     private String locationName;
+
+    private String companyName;
 
     // Image file name — e.g. "asset-1.jpg"
     private String imagePath;

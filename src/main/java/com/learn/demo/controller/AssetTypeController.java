@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -43,7 +44,8 @@ public class AssetTypeController {
     // DELETE TYPE
     @DeleteMapping("/{typeId}")
     public ResponseEntity<Apiresponse> deleteType(@PathVariable Long typeId) {
-        service.deleteType(typeId);
+        String deletedBy = SecurityContextHolder.getContext().getAuthentication().getName();
+        service.deleteType(typeId, deletedBy);
         return ResponseEntity.ok(
             new Apiresponse(HttpStatus.OK.value(), "Asset type deleted successfully", null)
         );

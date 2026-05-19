@@ -30,6 +30,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // So the correct derived query uses "DeletedFalse" (matching the field name)
     Optional<User> findByUserEmailAndDeletedFalse(String email);
 
-    // ✅ Check duplicate email
-    boolean existsByUserEmail(String email);
+    // Check duplicate email — only among active (non-deleted) users
+    @Query("SELECT COUNT(u) > 0 FROM User u WHERE u.userEmail = :email AND u.deleted = false")
+    boolean existsByUserEmail(@Param("email") String email);
 }

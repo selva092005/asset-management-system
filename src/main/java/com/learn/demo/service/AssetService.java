@@ -1,12 +1,16 @@
 package com.learn.demo.service;
 
+import java.io.ByteArrayOutputStream;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.learn.demo.dto.request.AssetRequestDTO;
 import com.learn.demo.dto.response.AssetResponseDTO;
+import com.learn.demo.dto.response.BulkUploadResultDTO;
+import com.learn.demo.dto.response.DashboardSummaryDTO;
 
 public interface AssetService {
 
@@ -22,5 +26,13 @@ public interface AssetService {
 
     void deleteAsset(Long assetId, String adminName);
 
-    Page<AssetResponseDTO> searchAssets(String name, String type, String location, Pageable pageable);
+    Page<AssetResponseDTO> searchAssets(String keyword, String type, String location, String status, Pageable pageable);
+
+    BulkUploadResultDTO bulkUploadFromExcel(MultipartFile file);
+
+    ByteArrayOutputStream exportToExcel(String uploadDir);
+
+    ByteArrayOutputStream generateTemplate();
+
+    DashboardSummaryDTO getDashboardSummary();
 }

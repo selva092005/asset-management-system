@@ -2,6 +2,7 @@ package com.learn.demo.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -60,7 +61,8 @@ public class CompanyController {
     // MANAGER only — delete
     @DeleteMapping("/{id}")
     public ResponseEntity<Apiresponse> delete(@PathVariable Long id) {
-        companyService.deleteCompany(id);
+        String deletedBy = SecurityContextHolder.getContext().getAuthentication().getName();
+        companyService.deleteCompany(id, deletedBy);
         return ResponseEntity.ok(
             new Apiresponse(HttpStatus.OK.value(), "Company deleted", null)
         );

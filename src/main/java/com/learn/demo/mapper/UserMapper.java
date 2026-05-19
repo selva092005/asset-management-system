@@ -25,14 +25,16 @@ public class UserMapper {
         dto.setUserName(user.getUserName());
         dto.setUserEmail(user.getUserEmail());
         dto.setUserRole(user.getUserRole());
+        dto.setCreatedAt(user.getCreatedAt());
+        dto.setUpdatedAt(user.getUpdatedAt());
         return dto;
     }
 
     // Apply updates from RequestDTO to existing Entity (for PUT)
+    // NOTE: password is NOT set here — service handles encoding separately
     public void updateEntityFromDTO(UserRequestDTO dto, User user) {
         user.setUserName(dto.getUserName());
         user.setUserEmail(dto.getUserEmail());
-        user.setUserPassword(dto.getUserPassword());
         user.setUserRole(dto.getUserRole());
     }
 }

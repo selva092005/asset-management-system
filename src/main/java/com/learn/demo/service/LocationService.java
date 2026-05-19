@@ -11,5 +11,5 @@ public interface LocationService {
     List<LocationResponseDTO> getLocationsByCompany(Long companyId);
     LocationResponseDTO getLocationById(Long id);
     LocationResponseDTO updateLocation(Long id, LocationRequestDTO dto);
-    void deleteLocation(Long id);
+    void deleteLocation(Long id, String adminName);
 }

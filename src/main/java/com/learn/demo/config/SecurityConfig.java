@@ -30,7 +30,6 @@ public class SecurityConfig {
         http
             .cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.disable())
-            // Stateless — no HTTP sessions for a JWT app
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
@@ -43,36 +42,58 @@ public class SecurityConfig {
 
                 .requestMatchers("/api/auth/**").permitAll()
 
-                // ✅ FIX: Images are served via <img src="..."> — the browser never sends
-                // an Authorization header for image requests, so this must be public.
-                // Upload (POST) still requires authentication.
+                // Images served via <img src="..."> — browser never sends Auth header
                 .requestMatchers(HttpMethod.GET, "/api/files/**").permitAll()
 
-                .requestMatchers(HttpMethod.GET,    "/api/companies/**").hasAnyRole("MANAGER", "ADMIN")
-                .requestMatchers(HttpMethod.POST,   "/api/companies/**").hasRole("MANAGER")
-                .requestMatchers(HttpMethod.PUT,    "/api/companies/**").hasRole("MANAGER")
-                .requestMatchers(HttpMethod.DELETE, "/api/companies/**").hasRole("MANAGER")
+                // ── Companies ─────────────────────────────────────────────────
+                .requestMatchers(HttpMethod.GET,    "/api/companies/**").hasAnyRole("ADMIN", "MANAGER")
+                .requestMatchers(HttpMethod.POST,   "/api/companies/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT,    "/api/companies/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/companies/**").hasRole("ADMIN")
 
-                .requestMatchers(HttpMethod.GET,    "/api/locations/**").hasAnyRole("MANAGER", "ADMIN")
-                .requestMatchers(HttpMethod.POST,   "/api/locations/**").hasRole("MANAGER")
-                .requestMatchers(HttpMethod.PUT,    "/api/locations/**").hasRole("MANAGER")
-                .requestMatchers(HttpMethod.DELETE, "/api/locations/**").hasRole("MANAGER")
+                // ── Locations ─────────────────────────────────────────────────
+                .requestMatchers(HttpMethod.GET,    "/api/locations/**").hasAnyRole("ADMIN", "MANAGER")
+                .requestMatchers(HttpMethod.POST,   "/api/locations/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT,    "/api/locations/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/locations/**").hasRole("ADMIN")
 
-                .requestMatchers(HttpMethod.GET,    "/api/types/**").hasAnyRole("MANAGER", "ADMIN", "USER")
-                .requestMatchers(HttpMethod.POST,   "/api/types/**").hasAnyRole("MANAGER", "ADMIN")
-                .requestMatchers(HttpMethod.PUT,    "/api/types/**").hasAnyRole("MANAGER", "ADMIN")
-                .requestMatchers(HttpMethod.DELETE, "/api/types/**").hasRole("MANAGER")
+                // ── Asset Types ───────────────────────────────────────────────
+                .requestMatchers(HttpMethod.GET,    "/api/types/**").hasAnyRole("ADMIN", "MANAGER", "USER")
+                .requestMatchers(HttpMethod.POST,   "/api/types/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT,    "/api/types/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/types/**").hasRole("ADMIN")
 
-                .requestMatchers(HttpMethod.GET,    "/api/assets/**").hasAnyRole("MANAGER", "ADMIN", "USER")
-                .requestMatchers(HttpMethod.POST,   "/api/assets/**").hasAnyRole("MANAGER", "ADMIN")
-                .requestMatchers(HttpMethod.PUT,    "/api/assets/**").hasAnyRole("MANAGER", "ADMIN")
-                .requestMatchers(HttpMethod.DELETE, "/api/assets/**").hasRole("MANAGER")
+                // ── Assets ────────────────────────────────────────────────────
+                .requestMatchers(HttpMethod.GET,    "/api/assets/export").hasAnyRole("ADMIN", "MANAGER")
+                .requestMatchers(HttpMethod.GET,    "/api/assets/template").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET,    "/api/assets/dashboard").hasAnyRole("ADMIN", "MANAGER", "USER")
+                .requestMatchers(HttpMethod.GET,    "/api/assets/**").hasAnyRole("ADMIN", "MANAGER", "USER")
+                .requestMatchers(HttpMethod.POST,   "/api/assets/bulk-excel").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST,   "/api/assets/bulk").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST,   "/api/assets/**").hasAnyRole("ADMIN", "MANAGER")
+                .requestMatchers(HttpMethod.PUT,    "/api/assets/**").hasAnyRole("ADMIN", "MANAGER")
+                .requestMatchers(HttpMethod.DELETE, "/api/assets/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT,    "/api/assets/**").hasAnyRole("ADMIN", "MANAGER")
+                .requestMatchers(HttpMethod.DELETE, "/api/assets/**").hasRole("ADMIN")
 
-                // Location history: anyone authenticated can view; ADMIN/MANAGER can move
-                .requestMatchers(HttpMethod.GET,    "/api/asset-history/**").hasAnyRole("MANAGER", "ADMIN", "USER")
-                .requestMatchers(HttpMethod.POST,   "/api/asset-history/**").hasAnyRole("MANAGER", "ADMIN")
+                // ── Location History ──────────────────────────────────────────
+                .requestMatchers(HttpMethod.GET,    "/api/asset-history/**").hasAnyRole("ADMIN", "MANAGER", "USER")
+                .requestMatchers(HttpMethod.POST,   "/api/asset-history/**").hasAnyRole("ADMIN", "MANAGER")
 
-                .requestMatchers("/api/users/**").hasRole("MANAGER")
+                // ── Allocations ───────────────────────────────────────────────
+                .requestMatchers(HttpMethod.GET,    "/api/allocations/**").hasAnyRole("ADMIN", "MANAGER", "USER")
+                .requestMatchers(HttpMethod.POST,   "/api/allocations/**").hasAnyRole("ADMIN", "MANAGER")
+                .requestMatchers(HttpMethod.PUT,    "/api/allocations/**").hasAnyRole("ADMIN", "MANAGER")
+
+                // ── Disposals ─────────────────────────────────────────────────
+                .requestMatchers(HttpMethod.GET,    "/api/disposals/**").hasAnyRole("ADMIN", "MANAGER")
+                .requestMatchers(HttpMethod.POST,   "/api/disposals/**").hasRole("ADMIN")
+
+                // ── Users ─────────────────────────────────────────────────────
+                .requestMatchers(HttpMethod.GET,    "/api/users/**").hasAnyRole("ADMIN", "MANAGER")
+                .requestMatchers(HttpMethod.POST,   "/api/users/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT,    "/api/users/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/users/**").hasRole("ADMIN")
 
                 .anyRequest().authenticated()
             )

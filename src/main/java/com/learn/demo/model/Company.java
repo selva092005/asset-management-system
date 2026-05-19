@@ -7,6 +7,7 @@ import org.hibernate.annotations.SQLRestriction;
 @Entity
 @Table(name = "company")
 @Data
+@EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 @AllArgsConstructor
 @SQLRestriction("deleted = false")

@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -135,7 +136,8 @@ public class LocationController {
     // MANAGER only — delete
     @DeleteMapping("/{id}")
     public ResponseEntity<Apiresponse> delete(@PathVariable Long id) {
-        locationService.deleteLocation(id);
+        String deletedBy = SecurityContextHolder.getContext().getAuthentication().getName();
+        locationService.deleteLocation(id, deletedBy);
         return ResponseEntity.ok(
             new Apiresponse(HttpStatus.OK.value(), "Location deleted", null)
         );

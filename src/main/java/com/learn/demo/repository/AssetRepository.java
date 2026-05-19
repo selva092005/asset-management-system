@@ -1,37 +1,37 @@
 package com.learn.demo.repository;
 
+import com.learn.demo.model.Asset;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import com.learn.demo.model.Asset;
+import java.time.LocalDate;
+import java.util.List;
 
 public interface AssetRepository extends JpaRepository<Asset, Long> {
 
     @Query("""
     SELECT a FROM Asset a
     WHERE a.deleted = false
-    AND (:name IS NULL OR a.assetName LIKE %:name%)
+    AND (:keyword IS NULL OR
+         a.assetName LIKE %:keyword% OR
+         a.assetCode LIKE %:keyword% OR
+         a.serialNumber LIKE %:keyword% OR
+         a.locationName LIKE %:keyword%)
     AND (:type IS NULL OR a.assetType.typeName = :type)
     AND (:location IS NULL OR a.locationName = :location)
+    AND (:status IS NULL OR a.status = :status)
     """)
     Page<Asset> searchAssets(
-        @Param("name") String name,
+        @Param("keyword") String keyword,
         @Param("type") String type,
         @Param("location") String location,
+        @Param("status") String status,
         Pageable pageable
     );
 
-    /**
-     * Find the MAX numeric suffix for a given prefix (e.g. "H-CH-IT-").
-     * Uses native SQL to bypass @SQLRestriction so deleted assets are included,
-     * preventing duplicate asset codes after soft-deletes.
-     *
-     * MySQL: CAST(SUBSTR(...) AS UNSIGNED) extracts the trailing number.
-     * Returns 0 if no matching row exists (COALESCE).
-     */
     @Query(value = """
         SELECT COALESCE(
             MAX(CAST(SUBSTR(asset_code, :prefixLen + 1) AS UNSIGNED)),
@@ -44,4 +44,53 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
         @Param("prefix") String prefix,
         @Param("prefixLen") int prefixLen
     );
+
+    @Query("SELECT COUNT(a) > 0 FROM Asset a WHERE a.deleted = false AND a.serialNumber = :serialNumber")
+    boolean existsBySerialNumber(@Param("serialNumber") String serialNumber);
+
+    @Query("""
+        SELECT COUNT(a) > 0 FROM Asset a
+        WHERE a.deleted = false
+        AND a.assetName = :assetName
+        AND a.locationName = :locationName
+    """)
+    boolean existsByAssetNameAndLocationName(
+        @Param("assetName") String assetName,
+        @Param("locationName") String locationName
+    );
+
+    // ── DASHBOARD QUERIES ────────────────────────────────────────────────────
+
+    List<Asset> findByDeletedFalse();
+
+    long countByDeletedFalseAndStatus(String status);
+
+    @Query("""
+        SELECT COUNT(a) FROM Asset a
+        WHERE a.deleted = false
+        AND a.warrantyExpiry IS NOT NULL
+        AND a.warrantyExpiry BETWEEN :today AND :cutoff
+    """)
+    long countExpiringWarranty(@Param("today") LocalDate today, @Param("cutoff") LocalDate cutoff);
+
+    @Query("""
+        SELECT a.assetType.typeName, COUNT(a) FROM Asset a
+        WHERE a.deleted = false
+        GROUP BY a.assetType.typeName
+    """)
+    List<Object[]> countGroupByType();
+
+    @Query("""
+        SELECT a.locationName, COUNT(a) FROM Asset a
+        WHERE a.deleted = false
+        GROUP BY a.locationName
+    """)
+    List<Object[]> countGroupByLocation();
+
+    @Query("""
+        SELECT a.companyName, COUNT(a) FROM Asset a
+        WHERE a.deleted = false AND a.companyName IS NOT NULL
+        GROUP BY a.companyName
+    """)
+    List<Object[]> countGroupByCompany();
 }

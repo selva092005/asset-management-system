@@ -75,10 +75,12 @@ public class CompanyServiceImpl implements CompanyService {
     }
 
     @Override
-    public void deleteCompany(Long id) {
+    public void deleteCompany(Long id, String adminName) {
         Company company = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Company", id));
         company.setDeleted(true);
+        company.setDeletedBy(adminName);
+        company.setDeletedAt(java.time.LocalDateTime.now());
         repository.save(company);
     }
 

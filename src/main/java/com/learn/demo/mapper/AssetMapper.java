@@ -24,7 +24,8 @@ public class AssetMapper {
         asset.setAssetCondition(dto.getAssetCondition());
         asset.setNotes(dto.getNotes());
         asset.setLocationName(dto.getLocationName());
-        asset.setImagePath(dto.getImagePath());  // ✅ FIX: save uploaded image file name to DB
+        asset.setCompanyName(dto.getCompanyName());
+        asset.setImagePath(dto.getImagePath());
         asset.setAssetType(assetType);
         return asset;
     }
@@ -44,11 +45,14 @@ public class AssetMapper {
         dto.setAssetCondition(asset.getAssetCondition());
         dto.setNotes(asset.getNotes());
         dto.setLocationName(asset.getLocationName());
+        dto.setCompanyName(asset.getCompanyName());
         dto.setAssetCode(asset.getAssetCode());
         dto.setQrCode(asset.getQrCode());
-        dto.setImagePath(asset.getImagePath());  // ✅ FIX: return imagePath so frontend can display the image
+        dto.setImagePath(asset.getImagePath());
+        dto.setCreatedAt(asset.getCreatedAt());
+        dto.setUpdatedAt(asset.getUpdatedAt());
         if (asset.getAssetType() != null) {
-            dto.setTypeId(asset.getAssetType().getTypeId());       // ✅ ADDED
+            dto.setTypeId(asset.getAssetType().getTypeId());
             dto.setTypeName(asset.getAssetType().getTypeName());
         }
         return dto;
@@ -67,8 +71,9 @@ public class AssetMapper {
         asset.setAssetCondition(dto.getAssetCondition());
         asset.setNotes(dto.getNotes());
         asset.setLocationName(dto.getLocationName());
+        asset.setCompanyName(dto.getCompanyName());
         if (dto.getImagePath() != null) {
-            asset.setImagePath(dto.getImagePath());  // ✅ FIX: update image on edit (only if new one provided)
+            asset.setImagePath(dto.getImagePath());
         }
         if (assetType != null) {
             asset.setAssetType(assetType);

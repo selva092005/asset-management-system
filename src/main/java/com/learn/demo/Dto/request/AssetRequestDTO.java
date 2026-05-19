@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
 @Data
@@ -28,8 +29,10 @@ public class AssetRequestDTO {
     private Double cost;
 
     @NotBlank(message = "Status is required")
+    @Pattern(regexp = "AVAILABLE|ASSIGNED|DAMAGED", message = "Status must be AVAILABLE, ASSIGNED or DAMAGED")
     private String status;
 
+    @Pattern(regexp = "^(GOOD|FAIR|POOR)$", message = "Condition must be GOOD, FAIR or POOR")
     private String assetCondition;
     private String notes;
 
