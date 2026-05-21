@@ -25,7 +25,6 @@ public class AssetDisposalServiceImpl implements AssetDisposalService {
     private final AssetDisposalRepository disposalRepository;
     private final AssetRepository assetRepository;
 
-    // ── DISPOSE ───────────────────────────────────────────────────────────────
     @Override
     @Transactional
     public AssetDisposalResponseDTO dispose(AssetDisposalRequestDTO dto) {
@@ -33,15 +32,15 @@ public class AssetDisposalServiceImpl implements AssetDisposalService {
         Asset asset = assetRepository.findById(dto.getAssetId())
             .orElseThrow(() -> new ResourceNotFoundException("Asset not found with id: " + dto.getAssetId()));
 
-        // Prevent disposing an already-disposed asset
-        if ("DISPOSED".equalsIgnoreCase(asset.getStatus())) {
-            throw new BusinessRuleException("Asset is already disposed.");
+        // Only AVAILABLE or DAMAGED assets can be disposed
+        if (!"AVAILABLE".equalsIgnoreCase(asset.getStatus()) &&
+                !"DAMAGED".equalsIgnoreCase(asset.getStatus())) {
+            throw new BusinessRuleException(
+                "Only AVAILABLE or DAMAGED assets can be disposed. Current status: " + asset.getStatus()
+            );
         }
 
-        if ("ASSIGNED".equalsIgnoreCase(asset.getStatus())) {
-            throw new BusinessRuleException("Asset is currently allocated. Return it before disposal.");
-        }
-        // Mark asset as disposed
+        // Mark asset as DISPOSED
         asset.setStatus("DISPOSED");
         assetRepository.save(asset);
 
@@ -57,7 +56,6 @@ public class AssetDisposalServiceImpl implements AssetDisposalService {
         return toDTO(disposalRepository.save(disposal));
     }
 
-    // ── GET ALL ───────────────────────────────────────────────────────────────
     @Override
     @Transactional(readOnly = true)
     public List<AssetDisposalResponseDTO> getAllDisposals() {
@@ -65,7 +63,6 @@ public class AssetDisposalServiceImpl implements AssetDisposalService {
             .stream().map(this::toDTO).collect(Collectors.toList());
     }
 
-    // ── GET BY ID ─────────────────────────────────────────────────────────────
     @Override
     @Transactional(readOnly = true)
     public AssetDisposalResponseDTO getDisposalById(Long disposalId) {
@@ -74,7 +71,6 @@ public class AssetDisposalServiceImpl implements AssetDisposalService {
         return toDTO(disposal);
     }
 
-    // ── MAPPER ────────────────────────────────────────────────────────────────
     private AssetDisposalResponseDTO toDTO(AssetDisposal d) {
         AssetDisposalResponseDTO dto = new AssetDisposalResponseDTO();
         dto.setDisposalId(d.getDisposalId());

@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -87,6 +88,23 @@ public class GlobalExceptionHandler {
         );
         error.setFieldErrors(fieldErrors);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    // 409 - Data Integrity Violation (e.g. duplicate DB insert)
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrity(DataIntegrityViolationException ex) {
+        log.error("Data integrity violation: ", ex);
+        String message = "Operation violates a data constraint. The record may already exist.";
+        // Provide a clearer message for duplicate disposal attempts
+        if (ex.getMessage() != null && ex.getMessage().contains("uq_disposal_asset")) {
+            message = "Asset is already disposed.";
+        }
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                "Conflict",
+                message
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
 
     // 400 - Illegal Argument

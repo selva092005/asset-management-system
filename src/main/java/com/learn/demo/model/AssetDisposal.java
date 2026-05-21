@@ -31,7 +31,6 @@ public class AssetDisposal {
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "asset_id", nullable = false)
-    @org.hibernate.annotations.NotFound(action = org.hibernate.annotations.NotFoundAction.IGNORE)
     private Asset asset;
 
     @Column(nullable = false)
