@@ -1,15 +1,18 @@
 package com.learn.demo.service.ServiceImpl;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.learn.demo.dto.request.AssetAllocationRequestDTO;
+import com.learn.demo.dto.response.AllocationOverviewDTO;
 import com.learn.demo.dto.response.AssetAllocationResponseDTO;
 import com.learn.demo.exception.BusinessRuleException;
 import com.learn.demo.exception.ResourceNotFoundException;
@@ -19,6 +22,9 @@ import com.learn.demo.repository.AssetAllocationRepository;
 import com.learn.demo.repository.AssetRepository;
 import com.learn.demo.service.AssetAllocationService;
 
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -83,11 +89,30 @@ public class AssetAllocationServiceImpl implements AssetAllocationService {
         return toDTO(allocationRepository.save(allocation));
     }
 
-    // ── GET ALL (paginated) ───────────────────────────────────────────────────
+    // ── GET ALL – no filters (existing, unchanged) ────────────────────────────
     @Override
     public Page<AssetAllocationResponseDTO> getAllAllocations(Pageable pageable) {
         return allocationRepository.findAllByOrderByAssignedDateDesc(pageable)
             .map(this::toDTO);
+    }
+
+    // ── GET ALL – with optional filters ──────────────────────────────────────
+    @Override
+    public Page<AssetAllocationResponseDTO> getAllAllocations(
+            String search, String status,
+            LocalDate fromDate, LocalDate toDate,
+            Pageable pageable) {
+
+        Specification<AssetAllocation> spec = buildSpec(search, status, fromDate, toDate);
+        return allocationRepository.findAll(spec, pageable).map(this::toDTO);
+    }
+
+    // ── GET BY ID ─────────────────────────────────────────────────────────────
+    @Override
+    public AssetAllocationResponseDTO getById(Long id) {
+        AssetAllocation allocation = allocationRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Allocation not found with id: " + id));
+        return toDTO(allocation);
     }
 
     // ── GET BY ASSET ──────────────────────────────────────────────────────────
@@ -95,6 +120,55 @@ public class AssetAllocationServiceImpl implements AssetAllocationService {
     public List<AssetAllocationResponseDTO> getAllocationsByAsset(Long assetId) {
         return allocationRepository.findByAsset_AssetIdOrderByAssignedDateDesc(assetId)
             .stream().map(this::toDTO).collect(Collectors.toList());
+    }
+
+    // ── OVERVIEW ──────────────────────────────────────────────────────────────
+    @Override
+    public AllocationOverviewDTO getOverview() {
+        LocalDate today = LocalDate.now();
+        long total         = allocationRepository.count();
+        long active        = allocationRepository.countByStatus("ACTIVE");
+        long returned      = allocationRepository.countByStatus("RETURNED");
+        long overdue       = allocationRepository.countOverdue(today);
+        long awaitingReturn = allocationRepository.countAwaitingReturn(today);
+        return new AllocationOverviewDTO(total, active, returned, overdue, awaitingReturn);
+    }
+
+    // ── SPECIFICATION BUILDER ─────────────────────────────────────────────────
+    private Specification<AssetAllocation> buildSpec(
+            String search, String status, LocalDate fromDate, LocalDate toDate) {
+
+        return (root, query, cb) -> {
+
+            if (query.getResultType() != Long.class && query.getResultType() != long.class) {
+                query.distinct(true);
+            }
+
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (search != null && !search.isBlank()) {
+                String like = "%" + search.toLowerCase() + "%";
+                Join<AssetAllocation, Asset> assetJoin = root.join("asset", JoinType.LEFT);
+                predicates.add(cb.or(
+                    cb.like(cb.lower(root.get("assignedTo")), like),
+                    cb.like(cb.lower(assetJoin.get("assetName")), like),
+                    cb.like(cb.lower(assetJoin.get("assetCode")), like)
+                ));
+            }
+
+            if (status != null && !status.isBlank()) {
+                predicates.add(cb.equal(root.get("status"), status.toUpperCase()));
+            }
+
+            if (fromDate != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("assignedDate"), fromDate));
+            }
+            if (toDate != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("assignedDate"), toDate));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
     }
 
     // ── MAPPER ────────────────────────────────────────────────────────────────

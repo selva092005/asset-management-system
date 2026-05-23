@@ -1,7 +1,10 @@
 package com.learn.demo.controller;
 
+import java.time.LocalDate;
+
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -43,14 +46,42 @@ public class AssetAllocationController {
         );
     }
 
-    // ── GET ALL ALLOCATIONS (paginated) ───────────────────────────────────────
+    // ── GET OVERVIEW STATS ────────────────────────────────────────────────────
+    // Must be declared BEFORE /{id} to avoid Spring treating "overview" as an id
+    @GetMapping("/overview")
+    public ResponseEntity<Apiresponse> getOverview() {
+        return ResponseEntity.ok(
+            new Apiresponse(HttpStatus.OK.value(), "Overview retrieved", service.getOverview())
+        );
+    }
+
+    // ── GET ALL ALLOCATIONS (paginated + optional filters) ────────────────────
     @GetMapping
     public ResponseEntity<Apiresponse> getAllAllocations(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+
+        PageRequest pageable = PageRequest.of(page, size, Sort.by("assignedDate").descending());
+        boolean hasFilters = (search != null) || (status != null) || (fromDate != null) || (toDate != null);
+
+        Object result = hasFilters
+            ? service.getAllAllocations(search, status, fromDate, toDate, pageable)
+            : service.getAllAllocations(pageable);
+
         return ResponseEntity.ok(
-            new Apiresponse(HttpStatus.OK.value(), "Allocations retrieved",
-                service.getAllAllocations(PageRequest.of(page, size, Sort.by("assignedDate").descending())))
+            new Apiresponse(HttpStatus.OK.value(), "Allocations retrieved", result)
+        );
+    }
+
+    // ── GET SINGLE ALLOCATION BY ID ───────────────────────────────────────────
+    @GetMapping("/{id}")
+    public ResponseEntity<Apiresponse> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(
+            new Apiresponse(HttpStatus.OK.value(), "Allocation retrieved", service.getById(id))
         );
     }
 
@@ -58,7 +89,8 @@ public class AssetAllocationController {
     @GetMapping("/asset/{assetId}")
     public ResponseEntity<Apiresponse> getAllocationsByAsset(@PathVariable Long assetId) {
         return ResponseEntity.ok(
-            new Apiresponse(HttpStatus.OK.value(), "Allocations for asset retrieved", service.getAllocationsByAsset(assetId))
+            new Apiresponse(HttpStatus.OK.value(), "Allocations for asset retrieved",
+                service.getAllocationsByAsset(assetId))
         );
     }
 }
