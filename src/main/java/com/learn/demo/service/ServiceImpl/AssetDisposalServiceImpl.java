@@ -32,11 +32,12 @@ public class AssetDisposalServiceImpl implements AssetDisposalService {
         Asset asset = assetRepository.findById(dto.getAssetId())
             .orElseThrow(() -> new ResourceNotFoundException("Asset not found with id: " + dto.getAssetId()));
 
-        // Only AVAILABLE or DAMAGED assets can be disposed
+        // Only AVAILABLE, DAMAGED, or UNDER_MAINTENANCE assets can be disposed
         if (!"AVAILABLE".equalsIgnoreCase(asset.getStatus()) &&
-                !"DAMAGED".equalsIgnoreCase(asset.getStatus())) {
+                !"DAMAGED".equalsIgnoreCase(asset.getStatus()) &&
+                !"UNDER_MAINTENANCE".equalsIgnoreCase(asset.getStatus())) {
             throw new BusinessRuleException(
-                "Only AVAILABLE or DAMAGED assets can be disposed. Current status: " + asset.getStatus()
+                "Only AVAILABLE, DAMAGED or UNDER_MAINTENANCE assets can be disposed. Current status: " + asset.getStatus()
             );
         }
 

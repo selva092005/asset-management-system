@@ -124,7 +124,7 @@ public class AssetServiceImpl implements AssetService {
                 .collect(Collectors.toList());
     }
 
-    private static final Set<String> VALID_STATUSES = Set.of("AVAILABLE", "DAMAGED");
+    private static final Set<String> VALID_STATUSES = Set.of("AVAILABLE", "DAMAGED", "UNDER_MAINTENANCE");
 
     // ─────────────────────────────────────────────
     // BULK UPLOAD FROM EXCEL FILE
@@ -174,7 +174,7 @@ public class AssetServiceImpl implements AssetService {
                         continue;
                     }
                     if (status == null || status.isBlank()) {
-                        errors.add(new RowIssue(rowNum, "status", "Status is required (AVAILABLE / DAMAGED)"));
+                        errors.add(new RowIssue(rowNum, "status", "Status is required (AVAILABLE / DAMAGED / UNDER_MAINTENANCE)"));
                         continue;
                     }
                     if (locationName == null || locationName.isBlank()) {
@@ -201,7 +201,7 @@ public class AssetServiceImpl implements AssetService {
                         continue;
                     }
                     if (!VALID_STATUSES.contains(statusUpper)) {
-                        errors.add(new RowIssue(rowNum, "status", "Invalid status \"" + status + "\". Must be AVAILABLE or DAMAGED"));
+                        errors.add(new RowIssue(rowNum, "status", "Invalid status \"" + status + "\". Must be AVAILABLE, DAMAGED or UNDER_MAINTENANCE"));
                         continue;
                     }
 
@@ -468,7 +468,7 @@ public class AssetServiceImpl implements AssetService {
             String[] instructions = {
                 "Required", "Optional", "Optional", "Optional",
                 "Required: YYYY-MM-DD", "Optional: YYYY-MM-DD",
-                "Required: number", "Required: AVAILABLE / DAMAGED (ASSIGNED and DISPOSED not allowed)",
+                "Required: number", "Required: AVAILABLE / DAMAGED / UNDER_MAINTENANCE (ASSIGNED and DISPOSED not allowed)",
                 "Optional: GOOD / FAIR / POOR", "Optional",
                 "Required: IT / Furniture / Mobile / Equipment",
                 "Required: any location text e.g. Office Room 1",
@@ -624,10 +624,11 @@ public class AssetServiceImpl implements AssetService {
     // ─────────────────────────────────────────────
     @Override
     public DashboardSummaryDTO getDashboardSummary() {
-        long total    = repository.count();
-        long available = repository.countByDeletedFalseAndStatus("AVAILABLE");
-        long assigned  = repository.countByDeletedFalseAndStatus("ASSIGNED");
-        long damaged   = repository.countByDeletedFalseAndStatus("DAMAGED");
+        long total          = repository.count();
+        long available      = repository.countByDeletedFalseAndStatus("AVAILABLE");
+        long assigned       = repository.countByDeletedFalseAndStatus("ASSIGNED");
+        long damaged        = repository.countByDeletedFalseAndStatus("DAMAGED");
+        long underMaintenance = repository.countByDeletedFalseAndStatus("UNDER_MAINTENANCE");
 
         LocalDate today  = LocalDate.now();
         LocalDate cutoff = today.plusDays(30);
@@ -640,7 +641,7 @@ public class AssetServiceImpl implements AssetService {
         Map<String, Long> byCompany = repository.countGroupByCompany().stream()
                 .collect(Collectors.toMap(r -> (String) r[0], r -> (Long) r[1]));
 
-        return new DashboardSummaryDTO(total, available, assigned, damaged, expiring, byType, byLocation, byCompany);
+        return new DashboardSummaryDTO(total, available, assigned, damaged, underMaintenance, expiring, byType, byLocation, byCompany);
     }
 
     // ─────────────────────────────────────────────

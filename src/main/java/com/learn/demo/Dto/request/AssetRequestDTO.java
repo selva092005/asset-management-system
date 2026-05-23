@@ -29,7 +29,7 @@ public class AssetRequestDTO {
     private Double cost;
 
     @NotBlank(message = "Status is required")
-    @Pattern(regexp = "AVAILABLE|ASSIGNED|DAMAGED", message = "Status must be AVAILABLE, ASSIGNED or DAMAGED")
+    @Pattern(regexp = "AVAILABLE|ASSIGNED|DAMAGED|UNDER_MAINTENANCE", message = "Status must be AVAILABLE, ASSIGNED, DAMAGED or UNDER_MAINTENANCE")
     private String status;
 
     @Pattern(regexp = "^(GOOD|FAIR|POOR)$", message = "Condition must be GOOD, FAIR or POOR")
