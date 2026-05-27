@@ -64,7 +64,7 @@ public class UserServiceImpl implements UserService {
             throw new InvalidCredentialsException("Invalid email or password");
         }
 
-        String token = jwtUtil.generateToken(user.getUserEmail(), user.getUserRole());
+        String token = jwtUtil.generateToken(user.getUserEmail(), user.getUserRole(), user.getUserName());
         String refreshToken = jwtUtil.generateRefreshToken(user.getUserEmail());
         return new LoginResponse(token, refreshToken, user.getUserRole());
     }
@@ -78,7 +78,7 @@ public class UserServiceImpl implements UserService {
         String email = jwtUtil.extractEmailFromRefreshToken(request.getRefreshToken());
         User user = repository.findByUserEmailAndDeletedFalse(email)
                 .orElseThrow(() -> new InvalidCredentialsException("User not found"));
-        String newToken = jwtUtil.generateToken(user.getUserEmail(), user.getUserRole());
+        String newToken = jwtUtil.generateToken(user.getUserEmail(), user.getUserRole(), user.getUserName());
         String newRefreshToken = jwtUtil.generateRefreshToken(user.getUserEmail());
         return new LoginResponse(newToken, newRefreshToken, user.getUserRole());
     }
@@ -371,6 +371,16 @@ public class UserServiceImpl implements UserService {
         } catch (IOException e) {
             throw new RuntimeException("Failed to generate template: " + e.getMessage(), e);
         }
+    }
+
+    @Override
+    public java.util.Map<String, Long> getUserSummaryStats() {
+        java.util.Map<String, Long> stats = new java.util.HashMap<>();
+        stats.put("total", repository.countByDeletedFalse());
+        stats.put("adminCount", repository.countByDeletedFalseAndUserRole("ADMIN"));
+        stats.put("managerCount", repository.countByDeletedFalseAndUserRole("MANAGER"));
+        stats.put("userCount", repository.countByDeletedFalseAndUserRole("USER"));
+        return stats;
     }
 
     // ─────────────────────────────────────────────

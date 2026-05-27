@@ -120,6 +120,13 @@ public class Usercontroller {
         return ResponseEntity.ok(new Apiresponse(HttpStatus.OK.value(), "Deleted successfully", null));
     }
 
+    @GetMapping("/summary-stats")
+    public ResponseEntity<Apiresponse> getUserSummaryStats() {
+        return ResponseEntity.ok(
+            new Apiresponse(HttpStatus.OK.value(), "User summary stats", service.getUserSummaryStats())
+        );
+    }
+
     // SEARCH + PAGINATION
     @GetMapping("/search/page")
     public ResponseEntity<Apiresponse> searchUsersWithPagination(

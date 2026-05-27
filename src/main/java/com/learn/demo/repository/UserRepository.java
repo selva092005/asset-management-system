@@ -33,4 +33,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // Check duplicate email — only among active (non-deleted) users
     @Query("SELECT COUNT(u) > 0 FROM User u WHERE u.userEmail = :email AND u.deleted = false")
     boolean existsByUserEmail(@Param("email") String email);
+
+    long countByDeletedFalse();
+
+    long countByDeletedFalseAndUserRole(String role);
 }

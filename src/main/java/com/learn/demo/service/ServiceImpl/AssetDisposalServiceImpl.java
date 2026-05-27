@@ -1,10 +1,17 @@
 package com.learn.demo.service.ServiceImpl;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 
 import com.learn.demo.dto.request.AssetDisposalRequestDTO;
 import com.learn.demo.dto.response.AssetDisposalResponseDTO;
@@ -59,9 +66,33 @@ public class AssetDisposalServiceImpl implements AssetDisposalService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<AssetDisposalResponseDTO> getAllDisposals() {
-        return disposalRepository.findAllByOrderByDisposalDateDesc()
+    public List<AssetDisposalResponseDTO> getAllDisposals(String search, String method) {
+        Specification<AssetDisposal> spec = buildSpec(search, method);
+        return disposalRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "disposalDate"))
             .stream().map(this::toDTO).collect(Collectors.toList());
+    }
+
+    private Specification<AssetDisposal> buildSpec(String search, String method) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (search != null && !search.isBlank()) {
+                String like = "%" + search.toLowerCase() + "%";
+                Join<AssetDisposal, Asset> assetJoin = root.join("asset", JoinType.LEFT);
+                predicates.add(cb.or(
+                    cb.like(cb.lower(root.get("disposedBy")), like),
+                    cb.like(cb.lower(root.get("reason")), like),
+                    cb.like(cb.lower(assetJoin.get("assetName")), like),
+                    cb.like(cb.lower(assetJoin.get("assetCode")), like)
+                ));
+            }
+
+            if (method != null && !method.isBlank()) {
+                predicates.add(cb.equal(root.get("disposalMethod"), method.toUpperCase()));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
     }
 
     @Override

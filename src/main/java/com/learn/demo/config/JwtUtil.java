@@ -33,10 +33,11 @@ public class JwtUtil {
     }
 
     // Access token — 1 hour
-    public String generateToken(String email, String role) {
+    public String generateToken(String email, String role, String userName) {
         return Jwts.builder()
                 .setSubject(email)
                 .claim("role", role)
+                .claim("userName", userName)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + 3600000))
                 .signWith(key, SignatureAlgorithm.HS256)

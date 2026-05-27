@@ -13,6 +13,8 @@ public interface LocationRepository extends JpaRepository<Location, Long> {
 
     Optional<Location> findByLocationNameIgnoreCase(String locationName);
 
+    List<Location> findAllByLocationNameIgnoreCase(String locationName);
+
     // Used to prevent duplicate location names within the same company
     boolean existsByLocationNameIgnoreCaseAndCompany_CompanyId(String locationName, Long companyId);
 }

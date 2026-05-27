@@ -78,7 +78,7 @@ public class SecurityConfig {
 
                 // ── Location History ──────────────────────────────────────────
                 .requestMatchers(HttpMethod.GET,    "/api/asset-history/**").hasAnyRole("ADMIN", "MANAGER", "USER")
-                .requestMatchers(HttpMethod.POST,   "/api/asset-history/**").hasAnyRole("ADMIN", "MANAGER")
+                .requestMatchers(HttpMethod.POST,   "/api/asset-history/**").hasRole("ADMIN")
 
                 // ── Allocations ───────────────────────────────────────────────
                 .requestMatchers(HttpMethod.GET,    "/api/allocations/**").hasAnyRole("ADMIN", "MANAGER", "USER")
@@ -94,6 +94,14 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST,   "/api/users/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT,    "/api/users/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/users/**").hasRole("ADMIN")
+
+                // ── Transfers ─────────────────────────────────────────────────
+                .requestMatchers(HttpMethod.GET,    "/api/transfers/**").hasAnyRole("ADMIN", "MANAGER")
+                .requestMatchers(HttpMethod.POST,   "/api/transfers/**").hasAnyRole("ADMIN", "MANAGER")
+                .requestMatchers(HttpMethod.PUT,    "/api/transfers/**").hasRole("ADMIN")
+
+                // ── Reports ───────────────────────────────────────────────────
+                .requestMatchers(HttpMethod.GET,    "/api/reports/**").hasAnyRole("ADMIN", "MANAGER", "USER")
 
                 .anyRequest().authenticated()
             )

@@ -38,4 +38,6 @@ public interface UserService {
     ByteArrayOutputStream exportToExcel();
 
     ByteArrayOutputStream generateTemplate();
+
+    java.util.Map<String, Long> getUserSummaryStats();
 }

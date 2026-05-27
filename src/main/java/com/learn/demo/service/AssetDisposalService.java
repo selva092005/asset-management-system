@@ -9,7 +9,7 @@ public interface AssetDisposalService {
 
     AssetDisposalResponseDTO dispose(AssetDisposalRequestDTO dto);
 
-    List<AssetDisposalResponseDTO> getAllDisposals();
+    List<AssetDisposalResponseDTO> getAllDisposals(String search, String method);
 
     AssetDisposalResponseDTO getDisposalById(Long disposalId);
 }
