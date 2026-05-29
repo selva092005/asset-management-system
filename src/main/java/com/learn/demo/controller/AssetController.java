@@ -94,6 +94,18 @@ public class AssetController {
         );
     }
 
+    // ── GET BULK UPLOAD HISTORY ──────────────────────────────────────────────
+    @GetMapping("/upload-history")
+    public ResponseEntity<Apiresponse> getUploadHistory() {
+        return ResponseEntity.ok(
+            new Apiresponse(
+                HttpStatus.OK.value(),
+                "Upload history retrieved",
+                service.getUploadHistory()
+            )
+        );
+    }
+
     // ── EXPORT ALL ASSETS TO EXCEL ───────────────────────────────────────────
     // GET /api/assets/export
     // Returns binary .xlsx file as a download

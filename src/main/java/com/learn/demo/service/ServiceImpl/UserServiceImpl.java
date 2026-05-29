@@ -86,8 +86,13 @@ public class UserServiceImpl implements UserService {
     // ─────────────────────────────────────────────
     // CREATE SINGLE USER
     // ─────────────────────────────────────────────
+    // CREATE SINGLE USER
+    // ─────────────────────────────────────────────
     @Override
     public UserResponseDTO saveUser(UserRequestDTO dto) {
+        if (dto.getUserPassword() == null || dto.getUserPassword().isBlank()) {
+            throw new BusinessRuleException("Password is required for new users");
+        }
         if (repository.existsByUserEmail(dto.getUserEmail())) {
             throw new DuplicateResourceException("User", "email", dto.getUserEmail());
         }
@@ -109,6 +114,9 @@ public class UserServiceImpl implements UserService {
     public List<UserResponseDTO> saveUsers(List<UserRequestDTO> dtos) {
         List<User> users = dtos.stream()
                 .map(dto -> {
+                    if (dto.getUserPassword() == null || dto.getUserPassword().isBlank()) {
+                        throw new BusinessRuleException("Password is required for all new users");
+                    }
                     if (repository.existsByUserEmail(dto.getUserEmail())) {
                         throw new DuplicateResourceException("User", "email", dto.getUserEmail());
                     }
@@ -169,8 +177,10 @@ public class UserServiceImpl implements UserService {
         // ✅ FIX: Convert role to UPPERCASE on update too
         user.setUserRole(dto.getUserRole().toUpperCase());
 
-        // ✅ Encode updated password
-        user.setUserPassword(passwordEncoder.encode(dto.getUserPassword()));
+        // ✅ Encode updated password ONLY if provided
+        if (dto.getUserPassword() != null && !dto.getUserPassword().isBlank()) {
+            user.setUserPassword(passwordEncoder.encode(dto.getUserPassword()));
+        }
 
         return userMapper.toResponseDTO(repository.save(user));
     }
@@ -221,7 +231,7 @@ public class UserServiceImpl implements UserService {
         try (XSSFWorkbook workbook = new XSSFWorkbook(file.getInputStream())) {
             Sheet sheet = workbook.getSheetAt(0);
 
-            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+            for (int i = 4; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
                 if (row == null) continue;
 
@@ -233,6 +243,10 @@ public class UserServiceImpl implements UserService {
                     String userEmail    = getCellString(row, 1);
                     String userPassword = getCellString(row, 2);
                     String userRole     = getCellString(row, 3);
+                    String employeeId   = getCellString(row, 4);
+                    String department   = getCellString(row, 5);
+                    String phoneNumber  = getCellString(row, 6);
+                    String designation  = getCellString(row, 7);
 
                     if (userName == null || userName.isBlank()) {
                         errors.add(new RowIssue(rowNum, "userName", "User Name is required")); continue;
@@ -260,6 +274,10 @@ public class UserServiceImpl implements UserService {
                     user.setUserEmail(userEmail);
                     user.setUserPassword(passwordEncoder.encode(userPassword));
                     user.setUserRole(userRole.toUpperCase());
+                    user.setEmployeeId(employeeId);
+                    user.setDepartment(department);
+                    user.setPhoneNumber(phoneNumber);
+                    user.setDesignation(designation);
                     repository.save(user);
                     successCount++;
 
@@ -294,7 +312,7 @@ public class UserServiceImpl implements UserService {
             headerFont.setColor(IndexedColors.WHITE.getIndex());
             headerStyle.setFont(headerFont);
 
-            String[] headers = { "ID", "Name", "Email", "Role" };
+            String[] headers = { "userName*", "userEmail*", "userPassword*", "userRole* (ADMIN/MANAGER/USER)", "employeeId", "department", "phoneNumber", "designation" };
             Row headerRow = sheet.createRow(0);
             headerRow.setHeightInPoints(20);
             for (int i = 0; i < headers.length; i++) {
@@ -306,10 +324,14 @@ public class UserServiceImpl implements UserService {
             for (int i = 0; i < users.size(); i++) {
                 User u = users.get(i);
                 Row row = sheet.createRow(i + 1);
-                row.createCell(0).setCellValue(u.getUserId() != null ? u.getUserId() : 0);
-                row.createCell(1).setCellValue(u.getUserName() != null ? u.getUserName() : "");
-                row.createCell(2).setCellValue(u.getUserEmail() != null ? u.getUserEmail() : "");
+                row.createCell(0).setCellValue(u.getUserName() != null ? u.getUserName() : "");
+                row.createCell(1).setCellValue(u.getUserEmail() != null ? u.getUserEmail() : "");
+                row.createCell(2).setCellValue(""); // password column left empty for safety
                 row.createCell(3).setCellValue(u.getUserRole() != null ? u.getUserRole() : "");
+                row.createCell(4).setCellValue(u.getEmployeeId() != null ? u.getEmployeeId() : "");
+                row.createCell(5).setCellValue(u.getDepartment() != null ? u.getDepartment() : "");
+                row.createCell(6).setCellValue(u.getPhoneNumber() != null ? u.getPhoneNumber() : "");
+                row.createCell(7).setCellValue(u.getDesignation() != null ? u.getDesignation() : "");
             }
 
             for (int i = 0; i < headers.length; i++) sheet.autoSizeColumn(i);
@@ -340,7 +362,7 @@ public class UserServiceImpl implements UserService {
             headerFont.setBold(true);
             headerStyle.setFont(headerFont);
 
-            String[] headers = { "userName*", "userEmail*", "userPassword*", "userRole* (ADMIN/MANAGER/USER)" };
+            String[] headers = { "userName*", "userEmail*", "userPassword*", "userRole* (ADMIN/MANAGER/USER)", "employeeId", "department", "phoneNumber", "designation" };
             Row headerRow = sheet.createRow(0);
             headerRow.setHeightInPoints(22);
             for (int i = 0; i < headers.length; i++) {
@@ -349,16 +371,43 @@ public class UserServiceImpl implements UserService {
                 cell.setCellStyle(headerStyle);
             }
 
+            CellStyle infoStyle = workbook.createCellStyle();
+            infoStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            infoStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            infoStyle.setBorderBottom(BorderStyle.THIN);
+            Font infoFont = workbook.createFont();
+            infoFont.setItalic(true);
+            infoStyle.setFont(infoFont);
+
+            Row infoRow = sheet.createRow(1);
+            String[] instructions = {
+                "Required: Name", "Required: Email", "Required: Password", "Required: ADMIN/MANAGER/USER",
+                "Optional: Employee ID", "Optional: Department", "Optional: Phone Number", "Optional: Designation"
+            };
+            for (int i = 0; i < instructions.length; i++) {
+                Cell cell = infoRow.createCell(i);
+                cell.setCellValue(instructions[i]);
+                cell.setCellStyle(infoStyle);
+            }
+
             CellStyle sampleStyle = workbook.createCellStyle();
             sampleStyle.setFillForegroundColor(IndexedColors.LIGHT_YELLOW.getIndex());
             sampleStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
             sampleStyle.setBorderBottom(BorderStyle.THIN);
 
-            Row sample = sheet.createRow(1);
-            String[] sampleData = { "John Doe", "john@example.com", "Password@1", "ADMIN" };
-            for (int i = 0; i < sampleData.length; i++) {
-                Cell cell = sample.createCell(i);
-                cell.setCellValue(sampleData[i]);
+            Row sample1 = sheet.createRow(2);
+            String[] sampleData1 = { "John Doe", "john.doe@example.com", "SecurePass123", "ADMIN", "EMP-0012", "Engineering", "9876543210", "Software Engineer" };
+            for (int i = 0; i < sampleData1.length; i++) {
+                Cell cell = sample1.createCell(i);
+                cell.setCellValue(sampleData1[i]);
+                cell.setCellStyle(sampleStyle);
+            }
+
+            Row sample2 = sheet.createRow(3);
+            String[] sampleData2 = { "Jane Smith", "jane.smith@example.com", "Password456", "MANAGER", "EMP-0013", "HR", "9876543211", "HR Specialist" };
+            for (int i = 0; i < sampleData2.length; i++) {
+                Cell cell = sample2.createCell(i);
+                cell.setCellValue(sampleData2[i]);
                 cell.setCellStyle(sampleStyle);
             }
 

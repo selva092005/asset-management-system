@@ -9,6 +9,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.learn.demo.dto.request.AssetRequestDTO;
 import com.learn.demo.dto.response.AssetResponseDTO;
+import com.learn.demo.dto.response.BulkUploadHistoryResponseDTO;
 import com.learn.demo.dto.response.BulkUploadResultDTO;
 import com.learn.demo.dto.response.DashboardSummaryDTO;
 
@@ -35,4 +36,6 @@ public interface AssetService {
     ByteArrayOutputStream generateTemplate();
 
     DashboardSummaryDTO getDashboardSummary();
+
+    List<BulkUploadHistoryResponseDTO> getUploadHistory();
 }

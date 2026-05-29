@@ -9,6 +9,10 @@ public class UserResponseDTO {
     private String userName;
     private String userEmail;
     private String userRole;
+    private String employeeId;
+    private String department;
+    private String phoneNumber;
+    private String designation;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

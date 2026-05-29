@@ -15,9 +15,8 @@ public class UserRequestDTO {
     @Email(message = "Invalid email format")
     private String userEmail;
 
-    @NotBlank(message = "Password is required")
     @Pattern(
-        regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$",
+        regexp = "^$|^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$",
         message = "Password must be at least 8 characters and include uppercase, lowercase, number, and special character (@$!%*?&)"
     )
     private String userPassword;
@@ -28,4 +27,12 @@ public class UserRequestDTO {
         message = "Role must be MANAGER, ADMIN or USER"
     )
     private String userRole;
+
+    private String employeeId;
+
+    private String department;
+
+    private String phoneNumber;
+
+    private String designation;
 }

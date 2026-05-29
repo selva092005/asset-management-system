@@ -37,16 +37,20 @@ import org.springframework.web.multipart.MultipartFile;
 import com.learn.demo.dto.request.AssetRequestDTO;
 import com.learn.demo.dto.response.AssetResponseDTO;
 import com.learn.demo.dto.response.BulkUploadResultDTO;
+import com.learn.demo.dto.response.BulkUploadHistoryResponseDTO;
 import com.learn.demo.dto.response.BulkUploadResultDTO.RowIssue;
 import com.learn.demo.dto.response.DashboardSummaryDTO;
 import com.learn.demo.exception.ResourceNotFoundException;
 import com.learn.demo.mapper.AssetMapper;
 import com.learn.demo.model.Asset;
 import com.learn.demo.model.AssetType;
+import com.learn.demo.model.BulkUploadHistory;
 import com.learn.demo.repository.AssetRepository;
 import com.learn.demo.repository.AssetTypeRepository;
+import com.learn.demo.repository.BulkUploadHistoryRepository;
 import com.learn.demo.service.AssetService;
 import com.learn.demo.util.AssetCodeGenerator;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import lombok.RequiredArgsConstructor;
 
@@ -57,6 +61,7 @@ public class AssetServiceImpl implements AssetService {
     private final AssetRepository repository;
     private final AssetTypeRepository assetTypeRepository;
     private final AssetMapper assetMapper;
+    private final BulkUploadHistoryRepository bulkUploadHistoryRepository;
 
     @org.springframework.beans.factory.annotation.Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
@@ -331,6 +336,38 @@ public class AssetServiceImpl implements AssetService {
         int skippedCount = skipped.size();
         int failedCount  = errors.size();
 
+        // ── Save Bulk Upload History record ──
+        try {
+            String uploadedBy = "Anonymous";
+            if (SecurityContextHolder.getContext().getAuthentication() != null) {
+                uploadedBy = SecurityContextHolder.getContext().getAuthentication().getName();
+            }
+            String filename = file.getOriginalFilename();
+            if (filename == null || filename.isBlank()) {
+                filename = "Unknown_Excel_File.xlsx";
+            }
+            BulkUploadHistory history = new BulkUploadHistory();
+            history.setFileName(filename);
+            history.setUploadedBy(uploadedBy);
+            history.setUploadedAt(LocalDateTime.now());
+            history.setTotalRows(totalRows);
+            history.setSuccessCount(successCount);
+            history.setFailedCount(failedCount);
+            history.setSkippedCount(skippedCount);
+
+            if (failedCount == 0 && skippedCount == 0 && successCount > 0) {
+                history.setStatus("COMPLETED");
+            } else if (successCount > 0) {
+                history.setStatus("COMPLETED_WITH_ERRORS");
+            } else {
+                history.setStatus("FAILED");
+            }
+
+            bulkUploadHistoryRepository.save(history);
+        } catch (Exception e) {
+            System.err.println("Failed to save upload history log: " + e.getMessage());
+        }
+
         return new BulkUploadResultDTO(totalRows, successCount, skippedCount, failedCount, skipped, errors);
     }
 
@@ -355,9 +392,10 @@ public class AssetServiceImpl implements AssetService {
             headerStyle.setFont(headerFont);
 
             String[] headers = {
-                "ID", "Asset Name", "Serial No", "Brand", "Model",
-                "Purchase Date", "Warranty Expiry", "Cost", "Status",
-                "Condition", "Notes", "Type", "Asset Code", "Location", "Image"
+                "assetName*", "serialNumber", "brand", "model",
+                "purchaseDate* (YYYY-MM-DD)", "warrantyExpiry (YYYY-MM-DD)",
+                "cost*", "status*", "assetCondition", "notes",
+                "typeName*", "locationName*", "companyName*"
             };
             Row headerRow = sheet.createRow(0);
             headerRow.setHeightInPoints(20);
@@ -367,51 +405,26 @@ public class AssetServiceImpl implements AssetService {
                 cell.setCellStyle(headerStyle);
             }
 
-            Drawing<?> drawing = sheet.createDrawingPatriarch();
-
             for (int i = 0; i < assets.size(); i++) {
                 Asset a = assets.get(i);
                 Row row = sheet.createRow(i + 1);
-                row.setHeightInPoints(60);
 
-                row.createCell(0).setCellValue(a.getAssetId() != null ? a.getAssetId().longValue() : 0L);
-                row.createCell(1).setCellValue(nullSafe(a.getAssetName()));
-                row.createCell(2).setCellValue(nullSafe(a.getSerialNumber()));
-                row.createCell(3).setCellValue(nullSafe(a.getBrand()));
-                row.createCell(4).setCellValue(nullSafe(a.getModel()));
-                row.createCell(5).setCellValue(a.getPurchaseDate() != null ? a.getPurchaseDate().toString() : "");
-                row.createCell(6).setCellValue(a.getWarrantyExpiry() != null ? a.getWarrantyExpiry().toString() : "");
-                row.createCell(7).setCellValue(a.getCost() != null ? a.getCost().doubleValue() : 0.0);
-                row.createCell(8).setCellValue(nullSafe(a.getStatus()));
-                row.createCell(9).setCellValue(nullSafe(a.getAssetCondition()));
-                row.createCell(10).setCellValue(nullSafe(a.getNotes()));
-                row.createCell(11).setCellValue(a.getAssetType() != null ? a.getAssetType().getTypeName() : "");
-                row.createCell(12).setCellValue(nullSafe(a.getAssetCode()));
-                row.createCell(13).setCellValue(nullSafe(a.getLocationName()));
-                row.createCell(14).setCellValue("");
-
-                if (a.getImagePath() != null && !a.getImagePath().isBlank()) {
-                    File imgFile = new File(uploadDir + File.separator + a.getImagePath());
-                    if (imgFile.exists()) {
-                        try (FileInputStream fis = new FileInputStream(imgFile)) {
-                            byte[] imgBytes = IOUtils.toByteArray(fis);
-                            String ext = a.getImagePath().toLowerCase();
-                            int pictureType = ext.endsWith(".png") ? Workbook.PICTURE_TYPE_PNG : Workbook.PICTURE_TYPE_JPEG;
-                            int pictureIdx = workbook.addPicture(imgBytes, pictureType);
-                            ClientAnchor anchor = workbook.getCreationHelper().createClientAnchor();
-                            anchor.setCol1(14); anchor.setRow1(i + 1);
-                            anchor.setCol2(15); anchor.setRow2(i + 2);
-                            anchor.setAnchorType(ClientAnchor.AnchorType.MOVE_AND_RESIZE);
-                            drawing.createPicture(anchor, pictureIdx);
-                        } catch (IOException e) {
-                            row.createCell(14).setCellValue("Image error");
-                        }
-                    }
-                }
+                row.createCell(0).setCellValue(nullSafe(a.getAssetName()));
+                row.createCell(1).setCellValue(nullSafe(a.getSerialNumber()));
+                row.createCell(2).setCellValue(nullSafe(a.getBrand()));
+                row.createCell(3).setCellValue(nullSafe(a.getModel()));
+                row.createCell(4).setCellValue(a.getPurchaseDate() != null ? a.getPurchaseDate().toString() : "");
+                row.createCell(5).setCellValue(a.getWarrantyExpiry() != null ? a.getWarrantyExpiry().toString() : "");
+                row.createCell(6).setCellValue(a.getCost() != null ? a.getCost().doubleValue() : 0.0);
+                row.createCell(7).setCellValue(nullSafe(a.getStatus()));
+                row.createCell(8).setCellValue(nullSafe(a.getAssetCondition()));
+                row.createCell(9).setCellValue(nullSafe(a.getNotes()));
+                row.createCell(10).setCellValue(a.getAssetType() != null ? a.getAssetType().getTypeName() : "");
+                row.createCell(11).setCellValue(nullSafe(a.getLocationName()));
+                row.createCell(12).setCellValue(nullSafe(a.getCompanyName()));
             }
 
-            for (int i = 0; i < headers.length - 1; i++) sheet.autoSizeColumn(i);
-            sheet.setColumnWidth(14, 4000);
+            for (int i = 0; i < headers.length; i++) sheet.autoSizeColumn(i);
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             workbook.write(out);
@@ -672,5 +685,25 @@ public class AssetServiceImpl implements AssetService {
 
     private String nullSafe(String value) {
         return value != null ? value : "";
+    }
+
+    @Override
+    public List<BulkUploadHistoryResponseDTO> getUploadHistory() {
+        return bulkUploadHistoryRepository.findAllByOrderByUploadedAtDesc()
+                .stream()
+                .map(history -> {
+                    BulkUploadHistoryResponseDTO dto = new BulkUploadHistoryResponseDTO();
+                    dto.setUploadId(history.getUploadId());
+                    dto.setFileName(history.getFileName());
+                    dto.setUploadedBy(history.getUploadedBy());
+                    dto.setUploadedAt(history.getUploadedAt());
+                    dto.setTotalRows(history.getTotalRows());
+                    dto.setSuccessCount(history.getSuccessCount());
+                    dto.setFailedCount(history.getFailedCount());
+                    dto.setSkippedCount(history.getSkippedCount());
+                    dto.setStatus(history.getStatus());
+                    return dto;
+                })
+                .collect(Collectors.toList());
     }
 }

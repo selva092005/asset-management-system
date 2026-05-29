@@ -34,4 +34,12 @@ public class User extends BaseEntity {
     private String userPassword;
 
     private String userRole;
+
+    private String employeeId;
+
+    private String department;
+
+    private String phoneNumber;
+
+    private String designation;
 }
