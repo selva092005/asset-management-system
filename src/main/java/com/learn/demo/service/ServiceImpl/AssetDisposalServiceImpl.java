@@ -114,6 +114,9 @@ public class AssetDisposalServiceImpl implements AssetDisposalService {
         dto.setReason(d.getReason());
         dto.setDisposedBy(d.getDisposedBy());
         dto.setDisposalValue(d.getDisposalValue());
+        if (d.getAsset() != null) {
+            dto.setAssetImagePath(d.getAsset().getImagePath());
+        }
         return dto;
     }
 }

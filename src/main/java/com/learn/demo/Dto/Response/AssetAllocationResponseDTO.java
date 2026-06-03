@@ -21,4 +21,5 @@ public class AssetAllocationResponseDTO {
     private LocalDate returnDate;
     private String remarks;
     private String status;           // "ACTIVE" | "RETURNED"
+    private String assetImagePath;
 }

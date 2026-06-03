@@ -16,6 +16,10 @@ public class AssetTransferRequestDTO {
     @NotBlank(message = "Reason is required")
     private String reason;
 
+    private java.time.LocalDate expectedDate;
+
+    private String priority;
+
     @NotBlank(message = "Requested-by name is required")
     private String requestedBy;
 }

@@ -103,6 +103,9 @@ public class SecurityConfig {
                 // ── Reports ───────────────────────────────────────────────────
                 .requestMatchers(HttpMethod.GET,    "/api/reports/**").hasAnyRole("ADMIN", "MANAGER", "USER")
 
+                // ── Notifications ─────────────────────────────────────────────
+                .requestMatchers("/api/notifications/**").hasAnyRole("ADMIN", "MANAGER", "USER")
+
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

@@ -29,6 +29,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // With primitive boolean, Lombok generates isDeleted() getter but the JPA field name is "deleted"
     // So the correct derived query uses "DeletedFalse" (matching the field name)
     Optional<User> findByUserEmailAndDeletedFalse(String email);
+    Optional<User> findByUserNameAndDeletedFalse(String userName);
 
     // Check duplicate email — only among active (non-deleted) users
     @Query("SELECT COUNT(u) > 0 FROM User u WHERE u.userEmail = :email AND u.deleted = false")

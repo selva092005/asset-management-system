@@ -21,6 +21,10 @@ import com.learn.demo.model.AssetAllocation;
 import com.learn.demo.repository.AssetAllocationRepository;
 import com.learn.demo.repository.AssetRepository;
 import com.learn.demo.service.AssetAllocationService;
+import com.learn.demo.service.NotificationService;
+import com.learn.demo.repository.UserRepository;
+import com.learn.demo.model.User;
+import java.util.Optional;
 
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
@@ -33,6 +37,8 @@ public class AssetAllocationServiceImpl implements AssetAllocationService {
 
     private final AssetAllocationRepository allocationRepository;
     private final AssetRepository assetRepository;
+    private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     // ── ALLOCATE ──────────────────────────────────────────────────────────────
     @Override
@@ -62,7 +68,30 @@ public class AssetAllocationServiceImpl implements AssetAllocationService {
         allocation.setRemarks(dto.getRemarks());
         allocation.setStatus("ACTIVE");
 
-        return toDTO(allocationRepository.save(allocation));
+        AssetAllocationResponseDTO response = toDTO(allocationRepository.save(allocation));
+
+        try {
+            String recipientEmail = null;
+            Optional<User> targetUser = userRepository.findByUserNameAndDeletedFalse(dto.getAssignedTo());
+            if (targetUser.isPresent()) {
+                recipientEmail = targetUser.get().getUserEmail();
+            } else {
+                Optional<User> targetUserByEmail = userRepository.findByUserEmailAndDeletedFalse(dto.getAssignedTo());
+                if (targetUserByEmail.isPresent()) {
+                    recipientEmail = targetUserByEmail.get().getUserEmail();
+                }
+            }
+            if (recipientEmail != null) {
+                notificationService.sendNotification(
+                    String.format("Asset '%s' (%s) has been allocated to you by %s.", asset.getAssetName(), asset.getAssetCode(), dto.getAssignedBy()),
+                    recipientEmail
+                );
+            }
+        } catch (Exception ex) {
+            // Log or ignore to prevent breaking the transaction
+        }
+
+        return response;
     }
 
     // ── RETURN ────────────────────────────────────────────────────────────────
@@ -86,7 +115,17 @@ public class AssetAllocationServiceImpl implements AssetAllocationService {
             assetRepository.save(asset);
         }
 
-        return toDTO(allocationRepository.save(allocation));
+        AssetAllocationResponseDTO response = toDTO(allocationRepository.save(allocation));
+
+        try {
+            notificationService.notifyAdmins(
+                String.format("Asset '%s' (%s) has been returned by %s.", asset.getAssetName(), asset.getAssetCode(), allocation.getAssignedTo())
+            );
+        } catch (Exception ex) {
+            // Log or ignore to prevent breaking the transaction
+        }
+
+        return response;
     }
 
     // ── GET ALL – no filters (existing, unchanged) ────────────────────────────
@@ -186,6 +225,9 @@ public class AssetAllocationServiceImpl implements AssetAllocationService {
         dto.setReturnDate(a.getReturnDate());
         dto.setRemarks(a.getRemarks());
         dto.setStatus(a.getStatus());
+        if (a.getAsset() != null) {
+            dto.setAssetImagePath(a.getAsset().getImagePath());
+        }
         return dto;
     }
 }

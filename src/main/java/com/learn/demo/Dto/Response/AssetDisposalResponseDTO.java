@@ -18,4 +18,5 @@ public class AssetDisposalResponseDTO {
     private String reason;
     private String disposedBy;
     private Double disposalValue;
+    private String assetImagePath;
 }

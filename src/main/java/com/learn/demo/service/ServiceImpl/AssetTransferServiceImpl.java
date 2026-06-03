@@ -27,6 +27,7 @@ import com.learn.demo.repository.AssetTransferRepository;
 import com.learn.demo.repository.LocationRepository;
 import com.learn.demo.repository.UserRepository;
 import com.learn.demo.service.AssetTransferService;
+import com.learn.demo.service.NotificationService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -40,6 +41,7 @@ public class AssetTransferServiceImpl implements AssetTransferService {
     private final LocationRepository locationRepository;
     private final UserRepository userRepository;
     private final AssetAllocationRepository allocationRepository;
+    private final NotificationService notificationService;
 
     // ── REQUEST TRANSFER ──────────────────────────────────────────────────────
     @Override
@@ -105,6 +107,8 @@ public class AssetTransferServiceImpl implements AssetTransferService {
         transfer.setFromLocation(asset.getLocationName() != null ? asset.getLocationName() : "UNASSIGNED");
         transfer.setToLocation(dto.getToLocation());
         transfer.setReason(dto.getReason());
+        transfer.setExpectedDate(dto.getExpectedDate());
+        transfer.setPriority(dto.getPriority() != null ? dto.getPriority().toUpperCase() : "MEDIUM");
         // Fallback to email if userName is null to satisfy DB NOT NULL constraint
         transfer.setRequestedBy(currentUser.getUserName() != null ? currentUser.getUserName() : currentUser.getUserEmail());
         transfer.setRequestedAt(LocalDateTime.now());
@@ -133,6 +137,16 @@ public class AssetTransferServiceImpl implements AssetTransferService {
         } else {
             // Standard Flow for Managers
             transfer.setStatus("PENDING");
+            
+            // Notify admins
+            notificationService.notifyAdmins(String.format(
+                "New transfer request for asset '%s' from '%s' to '%s' (Priority: %s) requested by %s.",
+                asset.getAssetName(), 
+                transfer.getFromLocation(), 
+                transfer.getToLocation(), 
+                transfer.getPriority(),
+                transfer.getRequestedBy()
+            ));
         }
 
         return toDTO(transferRepository.save(transfer));
@@ -177,6 +191,26 @@ public class AssetTransferServiceImpl implements AssetTransferService {
         history.setReason("Transfer approved: " + transfer.getReason());
         locationHistoryRepository.save(history);
 
+        // Notify requester
+        String requesterEmail = null;
+        java.util.Optional<User> requesterOpt = userRepository.findByUserEmailAndDeletedFalse(transfer.getRequestedBy());
+        if (requesterOpt.isPresent()) {
+            requesterEmail = requesterOpt.get().getUserEmail();
+        } else {
+            requesterEmail = userRepository.findAll().stream()
+                .filter(u -> !u.isDeleted() && transfer.getRequestedBy().equalsIgnoreCase(u.getUserName()))
+                .map(User::getUserEmail)
+                .findFirst()
+                .orElse(null);
+        }
+        if (requesterEmail != null) {
+            notificationService.sendNotification(
+                String.format("Your transfer request for asset '%s' was APPROVED by %s. Remarks: %s",
+                    asset.getAssetName(), transfer.getResolvedBy(), transfer.getRemarks()),
+                requesterEmail
+            );
+        }
+
         return toDTO(transferRepository.save(transfer));
     }
 
@@ -202,6 +236,26 @@ public class AssetTransferServiceImpl implements AssetTransferService {
         transfer.setResolvedBy(currentUser.getUserName() != null ? currentUser.getUserName() : currentUser.getUserEmail());
         transfer.setRemarks(dto.getRemarks());
         transfer.setResolvedAt(LocalDateTime.now());
+
+        // Notify requester
+        String requesterEmail = null;
+        java.util.Optional<User> requesterOpt = userRepository.findByUserEmailAndDeletedFalse(transfer.getRequestedBy());
+        if (requesterOpt.isPresent()) {
+            requesterEmail = requesterOpt.get().getUserEmail();
+        } else {
+            requesterEmail = userRepository.findAll().stream()
+                .filter(u -> !u.isDeleted() && transfer.getRequestedBy().equalsIgnoreCase(u.getUserName()))
+                .map(User::getUserEmail)
+                .findFirst()
+                .orElse(null);
+        }
+        if (requesterEmail != null) {
+            notificationService.sendNotification(
+                String.format("Your transfer request for asset '%s' was REJECTED by %s. Remarks: %s",
+                    transfer.getAsset().getAssetName(), transfer.getResolvedBy(), transfer.getRemarks()),
+                requesterEmail
+            );
+        }
 
         return toDTO(transferRepository.save(transfer));
     }
@@ -254,6 +308,8 @@ public class AssetTransferServiceImpl implements AssetTransferService {
         dto.setFromLocation(t.getFromLocation());
         dto.setToLocation(t.getToLocation());
         dto.setReason(t.getReason());
+        dto.setExpectedDate(t.getExpectedDate());
+        dto.setPriority(t.getPriority());
         dto.setRequestedBy(t.getRequestedBy());
         dto.setResolvedBy(t.getResolvedBy());
         dto.setStatus(t.getStatus());

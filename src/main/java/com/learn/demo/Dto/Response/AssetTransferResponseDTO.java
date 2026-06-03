@@ -17,6 +17,8 @@ public class AssetTransferResponseDTO {
     private String toLocation;
 
     private String reason;
+    private java.time.LocalDate expectedDate;
+    private String priority;
     private String requestedBy;
     private String resolvedBy;
     private String status;          // "PENDING" | "APPROVED" | "REJECTED"

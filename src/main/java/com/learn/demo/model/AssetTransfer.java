@@ -44,6 +44,12 @@ public class AssetTransfer extends BaseEntity {
     @Column(nullable = false)
     private String reason;
 
+    @Column(name = "expected_date")
+    private java.time.LocalDate expectedDate;
+
+    @Column(name = "priority")
+    private String priority; // "LOW" | "MEDIUM" | "HIGH"
+
     @Column(nullable = false)
     private String requestedBy;       // manager / admin who requested
 

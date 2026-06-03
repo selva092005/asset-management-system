@@ -395,7 +395,7 @@ public class AssetServiceImpl implements AssetService {
                 "assetName*", "serialNumber", "brand", "model",
                 "purchaseDate* (YYYY-MM-DD)", "warrantyExpiry (YYYY-MM-DD)",
                 "cost*", "status*", "assetCondition", "notes",
-                "typeName*", "locationName*", "companyName*"
+                "typeName*", "locationName*", "companyName*", "image"
             };
             Row headerRow = sheet.createRow(0);
             headerRow.setHeightInPoints(20);
@@ -404,6 +404,8 @@ public class AssetServiceImpl implements AssetService {
                 cell.setCellValue(headers[i]);
                 cell.setCellStyle(headerStyle);
             }
+
+            Drawing<?> drawing = null;
 
             for (int i = 0; i < assets.size(); i++) {
                 Asset a = assets.get(i);
@@ -422,9 +424,54 @@ public class AssetServiceImpl implements AssetService {
                 row.createCell(10).setCellValue(a.getAssetType() != null ? a.getAssetType().getTypeName() : "");
                 row.createCell(11).setCellValue(nullSafe(a.getLocationName()));
                 row.createCell(12).setCellValue(nullSafe(a.getCompanyName()));
+
+                // Embed image if present
+                if (a.getImagePath() != null && !a.getImagePath().isBlank()) {
+                    File imageFile = new File(uploadDir, a.getImagePath());
+                    if (imageFile.exists() && imageFile.isFile()) {
+                        try (FileInputStream fis = new FileInputStream(imageFile)) {
+                            byte[] bytes = IOUtils.toByteArray(fis);
+                            int pictureType = Workbook.PICTURE_TYPE_PNG;
+                            String nameLower = imageFile.getName().toLowerCase();
+                            if (nameLower.endsWith(".jpg") || nameLower.endsWith(".jpeg")) {
+                                pictureType = Workbook.PICTURE_TYPE_JPEG;
+                            } else if (nameLower.endsWith(".gif")) {
+                                pictureType = org.apache.poi.common.usermodel.PictureType.GIF.ooxmlId;
+                            }
+                            int pictureIdx = workbook.addPicture(bytes, pictureType);
+
+                            // Set row taller to fit thumbnail
+                            row.setHeightInPoints(45);
+
+                            if (drawing == null) {
+                                drawing = sheet.createDrawingPatriarch();
+                            }
+                            ClientAnchor anchor = workbook.getCreationHelper().createClientAnchor();
+                            anchor.setCol1(13); // Column N (Index 13)
+                            anchor.setRow1(i + 1);
+                            anchor.setCol2(14);
+                            anchor.setRow2(i + 2);
+                            anchor.setAnchorType(ClientAnchor.AnchorType.MOVE_AND_RESIZE);
+                            drawing.createPicture(anchor, pictureIdx);
+                        } catch (Exception e) {
+                            System.err.println("Failed to insert asset image in excel: " + e.getMessage());
+                            row.createCell(13).setCellValue("Error loading image");
+                        }
+                    } else {
+                        row.createCell(13).setCellValue("No image file");
+                    }
+                } else {
+                    row.createCell(13).setCellValue("No image");
+                }
             }
 
-            for (int i = 0; i < headers.length; i++) sheet.autoSizeColumn(i);
+            for (int i = 0; i < headers.length; i++) {
+                if (i == 13) {
+                    sheet.setColumnWidth(i, 20 * 256);
+                } else {
+                    sheet.autoSizeColumn(i);
+                }
+            }
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             workbook.write(out);
