@@ -41,6 +41,7 @@ public class SecurityConfig {
                 ).permitAll()
 
                 .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/ws-notifications/**").permitAll()
 
                 // Images served via <img src="..."> — browser never sends Auth header
                 .requestMatchers(HttpMethod.GET, "/api/files/**").permitAll()

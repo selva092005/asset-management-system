@@ -51,4 +51,12 @@ public class NotificationController {
             new Apiresponse(200, "All notifications marked as read", null)
         );
     }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/clear-all")
+    public ResponseEntity<Apiresponse> clearAllNotifications() {
+        service.clearAllNotifications();
+        return ResponseEntity.ok(
+            new Apiresponse(200, "All notifications cleared", null)
+        );
+    }
 }

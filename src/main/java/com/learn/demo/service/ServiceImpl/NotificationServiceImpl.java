@@ -13,6 +13,7 @@ import com.learn.demo.repository.NotificationRepository;
 import com.learn.demo.repository.UserRepository;
 import com.learn.demo.service.NotificationService;
 import com.learn.demo.exception.ResourceNotFoundException;
+import com.learn.demo.config.NotificationWebSocketHandler;
 
 import lombok.RequiredArgsConstructor;
 
@@ -22,6 +23,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final NotificationWebSocketHandler webSocketHandler;
 
     private String getLoggedInEmail() {
         return SecurityContextHolder.getContext().getAuthentication().getName();
@@ -58,6 +60,13 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     @Transactional
+    public void clearAllNotifications() {
+        List<Notification> all = notificationRepository.findByUserEmailOrderByCreatedAtDesc(getLoggedInEmail());
+        notificationRepository.deleteAll(all);
+    }
+
+    @Override
+    @Transactional
     public void sendNotification(String message, String userEmail) {
         Notification notification = new Notification();
         notification.setMessage(message);
@@ -65,6 +74,19 @@ public class NotificationServiceImpl implements NotificationService {
         notification.setRead(false);
         notification.setCreatedAt(LocalDateTime.now());
         notificationRepository.save(notification);
+
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                new org.springframework.transaction.support.TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        webSocketHandler.sendNotificationToUser(userEmail, message);
+                    }
+                }
+            );
+        } else {
+            webSocketHandler.sendNotificationToUser(userEmail, message);
+        }
     }
 
     @Override

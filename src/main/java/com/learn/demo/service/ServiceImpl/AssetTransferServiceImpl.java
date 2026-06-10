@@ -262,6 +262,7 @@ public class AssetTransferServiceImpl implements AssetTransferService {
 
     // ── GET ALL ───────────────────────────────────────────────────────────────
     @Override
+    @Transactional(readOnly = true)
     public Page<AssetTransferResponseDTO> getAllTransfers(String status, Pageable pageable) {
         if (status != null && !status.isBlank()) {
             return transferRepository.findByStatusOrderByRequestedAtDesc(status.toUpperCase(), pageable)
@@ -272,12 +273,14 @@ public class AssetTransferServiceImpl implements AssetTransferService {
 
     // ── GET BY ID ─────────────────────────────────────────────────────────────
     @Override
+    @Transactional(readOnly = true)
     public AssetTransferResponseDTO getById(Long transferId) {
         return toDTO(getTransferOrThrow(transferId));
     }
 
     // ── GET BY ASSET ──────────────────────────────────────────────────────────
     @Override
+    @Transactional(readOnly = true)
     public List<AssetTransferResponseDTO> getTransfersByAsset(Long assetId) {
         return transferRepository.findByAsset_AssetIdOrderByRequestedAtDesc(assetId)
             .stream().map(this::toDTO).collect(Collectors.toList());
@@ -285,6 +288,7 @@ public class AssetTransferServiceImpl implements AssetTransferService {
 
     // ── OVERVIEW ──────────────────────────────────────────────────────────────
     @Override
+    @Transactional(readOnly = true)
     public TransferOverviewDTO getOverview() {
         long total    = transferRepository.count();
         long pending  = transferRepository.countByStatus("PENDING");
@@ -302,9 +306,21 @@ public class AssetTransferServiceImpl implements AssetTransferService {
     private AssetTransferResponseDTO toDTO(AssetTransfer t) {
         AssetTransferResponseDTO dto = new AssetTransferResponseDTO();
         dto.setTransferId(t.getTransferId());
-        dto.setAssetId(t.getAsset().getAssetId());
-        dto.setAssetName(t.getAsset().getAssetName());
-        dto.setAssetCode(t.getAsset().getAssetCode());
+        if (t.getAsset() != null) {
+            try {
+                dto.setAssetId(t.getAsset().getAssetId());
+                dto.setAssetName(t.getAsset().getAssetName());
+                dto.setAssetCode(t.getAsset().getAssetCode());
+            } catch (Exception e) {
+                dto.setAssetId(null);
+                dto.setAssetName("Deleted Asset");
+                dto.setAssetCode("N/A");
+            }
+        } else {
+            dto.setAssetId(null);
+            dto.setAssetName("Deleted Asset");
+            dto.setAssetCode("N/A");
+        }
         dto.setFromLocation(t.getFromLocation());
         dto.setToLocation(t.getToLocation());
         dto.setReason(t.getReason());

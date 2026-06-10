@@ -14,6 +14,8 @@ public interface NotificationService {
 
     void markAllAsRead();
 
+    void clearAllNotifications();
+
     void sendNotification(String message, String userEmail);
 
     void notifyAdmins(String message);
