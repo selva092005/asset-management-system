@@ -40,9 +40,11 @@ public class AssetAllocationController {
 
     // ── RETURN ASSET ──────────────────────────────────────────────────────────
     @PutMapping("/{allocationId}/return")
-    public ResponseEntity<Apiresponse> returnAsset(@PathVariable Long allocationId) {
+    public ResponseEntity<Apiresponse> returnAsset(
+            @PathVariable Long allocationId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate returnDate) {
         return ResponseEntity.ok(
-            new Apiresponse(HttpStatus.OK.value(), "Asset returned successfully", service.returnAsset(allocationId))
+            new Apiresponse(HttpStatus.OK.value(), "Asset returned successfully", service.returnAsset(allocationId, returnDate))
         );
     }
 

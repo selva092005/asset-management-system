@@ -41,13 +41,17 @@ import com.learn.demo.dto.response.BulkUploadHistoryResponseDTO;
 import com.learn.demo.dto.response.BulkUploadResultDTO.RowIssue;
 import com.learn.demo.dto.response.DashboardSummaryDTO;
 import com.learn.demo.exception.ResourceNotFoundException;
+import com.learn.demo.exception.BusinessRuleException;
 import com.learn.demo.mapper.AssetMapper;
 import com.learn.demo.model.Asset;
 import com.learn.demo.model.AssetType;
+import com.learn.demo.model.Location;
 import com.learn.demo.model.BulkUploadHistory;
 import com.learn.demo.repository.AssetRepository;
 import com.learn.demo.repository.AssetTypeRepository;
+import com.learn.demo.repository.LocationRepository;
 import com.learn.demo.repository.BulkUploadHistoryRepository;
+import com.learn.demo.repository.AssetTransferRepository;
 import com.learn.demo.service.AssetService;
 import com.learn.demo.util.AssetCodeGenerator;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -62,6 +66,8 @@ public class AssetServiceImpl implements AssetService {
     private final AssetTypeRepository assetTypeRepository;
     private final AssetMapper assetMapper;
     private final BulkUploadHistoryRepository bulkUploadHistoryRepository;
+    private final LocationRepository locationRepository;
+    private final AssetTransferRepository assetTransferRepository;
 
     @org.springframework.beans.factory.annotation.Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
@@ -74,19 +80,31 @@ public class AssetServiceImpl implements AssetService {
         AssetType assetType = assetTypeRepository.findById(dto.getTypeId())
                 .orElseThrow(() -> new ResourceNotFoundException("AssetType", dto.getTypeId()));
 
+        Location location = locationRepository.findById(dto.getLocationId())
+                .orElseThrow(() -> new ResourceNotFoundException("Location", dto.getLocationId()));
+
         if (dto.getSerialNumber() != null && !dto.getSerialNumber().isBlank()) {
             if (repository.existsBySerialNumber(dto.getSerialNumber()))
                 throw new com.learn.demo.exception.DuplicateResourceException("Asset", "serialNumber", dto.getSerialNumber());
         } else {
-            if (repository.existsByAssetNameAndLocationName(dto.getAssetName(), dto.getLocationName()))
-                throw new com.learn.demo.exception.DuplicateResourceException("Asset", "name+location", dto.getAssetName() + " at " + dto.getLocationName());
+            if (repository.existsByAssetNameAndLocationName(dto.getAssetName(), location.getLocationName()))
+                throw new com.learn.demo.exception.DuplicateResourceException("Asset", "name+location", dto.getAssetName() + " at " + location.getLocationName());
         }
 
-        Asset asset = assetMapper.toEntity(dto, assetType);
-        asset.setStatus(dto.getStatus().toUpperCase());
+        String requestedStatus = dto.getStatus().toUpperCase();
+        if ("ASSIGNED".equals(requestedStatus)) {
+            throw new BusinessRuleException("Cannot manually set status to ASSIGNED. Use the allocation endpoint.");
+        }
+        if ("DISPOSED".equals(requestedStatus)) {
+            throw new BusinessRuleException("Cannot manually set status to DISPOSED. Use the disposal endpoint.");
+        }
+
+        Asset asset = assetMapper.toEntity(dto, assetType, location);
+        asset.setStatus(requestedStatus);
         asset.setAssetCondition(dto.getAssetCondition() != null ? dto.getAssetCondition().toUpperCase() : null);
 
-        String assetCode = generateAssetCode(dto.getCompanyName(), dto.getLocationName(), assetType.getTypeName(), null);
+        String companyName = location.getCompany() != null ? location.getCompany().getCompanyName() : "UNKNOWN";
+        String assetCode = generateAssetCode(companyName, location.getLocationName(), assetType.getTypeName(), null);
         asset.setAssetCode(assetCode);
 
         String qrContent = frontendUrl + "/home/assets/" + assetCode;
@@ -96,7 +114,7 @@ public class AssetServiceImpl implements AssetService {
     }
 
     // ─────────────────────────────────────────────
-    // BULK SAVE (existing JSON bulk — unchanged)
+    // BULK SAVE (existing JSON bulk)
     // ─────────────────────────────────────────────
     @Override
     public List<AssetResponseDTO> saveAllAssets(List<AssetRequestDTO> dtos) {
@@ -107,13 +125,17 @@ public class AssetServiceImpl implements AssetService {
                     AssetType assetType = assetTypeRepository.findById(dto.getTypeId())
                             .orElseThrow(() -> new ResourceNotFoundException("AssetType", dto.getTypeId()));
 
-                    Asset asset = assetMapper.toEntity(dto, assetType);
+                    Location location = locationRepository.findById(dto.getLocationId())
+                            .orElseThrow(() -> new ResourceNotFoundException("Location", dto.getLocationId()));
+
+                    Asset asset = assetMapper.toEntity(dto, assetType, location);
                     asset.setStatus(dto.getStatus().toUpperCase());
                     asset.setAssetCondition(dto.getAssetCondition() != null
                             ? dto.getAssetCondition().toUpperCase() : null);
 
+                    String companyName = location.getCompany() != null ? location.getCompany().getCompanyName() : "UNKNOWN";
                     String assetCode = generateAssetCode(
-                            dto.getCompanyName(), dto.getLocationName(), assetType.getTypeName(), localOffsetMap);
+                            companyName, location.getLocationName(), assetType.getTypeName(), localOffsetMap);
                     asset.setAssetCode(assetCode);
 
                     String qrContent = frontendUrl + "/home/assets/" + assetCode;
@@ -292,10 +314,17 @@ public class AssetServiceImpl implements AssetService {
                         continue;
                     }
 
-                    // ── FIX 3: locationName and companyName saved as free text ──
-                    // No DB lookup — any text is accepted, exactly like the Add Asset form
+                    // ── FIX 3: location lookup in the database ───────────
                     String cleanLocation = locationName.trim();
                     String cleanCompany  = companyName.trim();
+
+                    Location location = locationRepository.findByLocationNameIgnoreCaseAndCompany_CompanyNameIgnoreCase(
+                            cleanLocation, cleanCompany).orElse(null);
+                    if (location == null) {
+                        errors.add(new RowIssue(rowNum, "locationName",
+                                "Location \"" + cleanLocation + "\" for company \"" + cleanCompany + "\" not found in database. Please create it first."));
+                        continue;
+                    }
 
                     // ── Build and save asset ──────────────────────────────
                     Asset asset = new Asset();
@@ -310,12 +339,13 @@ public class AssetServiceImpl implements AssetService {
                     asset.setAssetCondition(condition != null && !condition.isBlank()
                             ? condition.toUpperCase() : null);
                     asset.setNotes(notes);
-                    asset.setLocationName(cleanLocation);
-                    asset.setCompanyName(cleanCompany);
+                    asset.setLocation(location);
+                    asset.setCompany(location.getCompany());
                     asset.setAssetType(assetType);
                     asset.setImagePath(null);
 
-                    String assetCode = generateAssetCode(cleanCompany, cleanLocation, assetType.getTypeName(), localOffsetMap);
+                    String companyNameStr = location.getCompany() != null ? location.getCompany().getCompanyName() : "UNKNOWN";
+                    String assetCode = generateAssetCode(companyNameStr, location.getLocationName(), assetType.getTypeName(), localOffsetMap);
                     asset.setAssetCode(assetCode);
 
                     String qrContent = frontendUrl + "/home/assets/" + assetCode;
@@ -422,8 +452,8 @@ public class AssetServiceImpl implements AssetService {
                 row.createCell(8).setCellValue(nullSafe(a.getAssetCondition()));
                 row.createCell(9).setCellValue(nullSafe(a.getNotes()));
                 row.createCell(10).setCellValue(a.getAssetType() != null ? a.getAssetType().getTypeName() : "");
-                row.createCell(11).setCellValue(nullSafe(a.getLocationName()));
-                row.createCell(12).setCellValue(nullSafe(a.getCompanyName()));
+                row.createCell(11).setCellValue(a.getLocation() != null ? nullSafe(a.getLocation().getLocationName()) : "");
+                row.createCell(12).setCellValue((a.getLocation() != null && a.getLocation().getCompany() != null) ? nullSafe(a.getLocation().getCompany().getCompanyName()) : "");
 
                 // Embed image if present
                 if (a.getImagePath() != null && !a.getImagePath().isBlank()) {
@@ -634,10 +664,20 @@ public class AssetServiceImpl implements AssetService {
         Asset asset = repository.findById(assetId)
                 .orElseThrow(() -> new ResourceNotFoundException("Asset", assetId));
 
+        if ("DISPOSED".equalsIgnoreCase(asset.getStatus())) {
+            throw new BusinessRuleException("Cannot modify details or status of a disposed asset.");
+        }
+
         AssetType assetType = null;
         if (dto.getTypeId() != null) {
             assetType = assetTypeRepository.findById(dto.getTypeId())
                     .orElseThrow(() -> new ResourceNotFoundException("AssetType", dto.getTypeId()));
+        }
+
+        Location location = null;
+        if (dto.getLocationId() != null) {
+            location = locationRepository.findById(dto.getLocationId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Location", dto.getLocationId()));
         }
 
         String requestedStatus = dto.getStatus().toUpperCase();
@@ -650,7 +690,7 @@ public class AssetServiceImpl implements AssetService {
                 "Cannot manually set status to DISPOSED. Use the disposal endpoint.");
         }
 
-        assetMapper.updateEntityFromDTO(dto, asset, assetType);
+        assetMapper.updateEntityFromDTO(dto, asset, assetType, location);
         asset.setStatus(requestedStatus);
         asset.setAssetCondition(dto.getAssetCondition() != null ? dto.getAssetCondition().toUpperCase() : null);
 
@@ -664,6 +704,16 @@ public class AssetServiceImpl implements AssetService {
     public void deleteAsset(Long assetId, String deletedBy) {
         Asset asset = repository.findById(assetId)
                 .orElseThrow(() -> new ResourceNotFoundException("Asset", assetId));
+
+        if ("ASSIGNED".equalsIgnoreCase(asset.getStatus())) {
+            throw new BusinessRuleException("Cannot delete asset because it is currently assigned/allocated.");
+        }
+
+        boolean hasPendingTransfer = assetTransferRepository.existsByAsset_AssetIdAndStatus(assetId, "PENDING");
+        if (hasPendingTransfer) {
+            throw new BusinessRuleException("Cannot delete asset because it has a pending transfer request.");
+        }
+
         asset.setDeleted(true);
         asset.setDeletedBy(deletedBy);
         asset.setDeletedAt(LocalDateTime.now());

@@ -15,4 +15,5 @@ public class UserResponseDTO {
     private String designation;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private boolean hasActiveAllocations;
 }

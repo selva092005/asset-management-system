@@ -86,6 +86,13 @@ public class AssetAllocationServiceImpl implements AssetAllocationService {
                     String.format("Asset '%s' (%s) has been allocated to you by %s.", asset.getAssetName(), asset.getAssetCode(), dto.getAssignedBy()),
                     recipientEmail
                 );
+                notificationService.sendAllocationEmail(
+                    recipientEmail,
+                    dto.getAssignedTo(),
+                    asset.getAssetName(),
+                    asset.getAssetCode(),
+                    "ALLOCATED"
+                );
             }
         } catch (Exception ex) {
             // Log or ignore to prevent breaking the transaction
@@ -97,7 +104,7 @@ public class AssetAllocationServiceImpl implements AssetAllocationService {
     // ── RETURN ────────────────────────────────────────────────────────────────
     @Override
     @Transactional
-    public AssetAllocationResponseDTO returnAsset(Long allocationId) {
+    public AssetAllocationResponseDTO returnAsset(Long allocationId, LocalDate returnDate) {
 
         AssetAllocation allocation = allocationRepository.findById(allocationId)
             .orElseThrow(() -> new ResourceNotFoundException("Allocation not found with id: " + allocationId));
@@ -106,8 +113,14 @@ public class AssetAllocationServiceImpl implements AssetAllocationService {
             throw new BusinessRuleException("Asset has already been returned.");
         }
 
+        LocalDate finalReturnDate = returnDate != null ? returnDate : LocalDate.now();
+
+        if (finalReturnDate.isBefore(allocation.getAssignedDate())) {
+            throw new BusinessRuleException("Actual return date cannot be before the assigned date (" + allocation.getAssignedDate() + ").");
+        }
+
         allocation.setStatus("RETURNED");
-        allocation.setReturnDate(LocalDate.now());
+        allocation.setReturnDate(finalReturnDate);
 
         Asset asset = allocation.getAsset();
         if (!asset.isDeleted()) {
@@ -121,6 +134,26 @@ public class AssetAllocationServiceImpl implements AssetAllocationService {
             notificationService.notifyAdmins(
                 String.format("Asset '%s' (%s) has been returned by %s.", asset.getAssetName(), asset.getAssetCode(), allocation.getAssignedTo())
             );
+
+            String recipientEmail = null;
+            Optional<User> targetUser = userRepository.findByUserNameAndDeletedFalse(allocation.getAssignedTo());
+            if (targetUser.isPresent()) {
+                recipientEmail = targetUser.get().getUserEmail();
+            } else {
+                Optional<User> targetUserByEmail = userRepository.findByUserEmailAndDeletedFalse(allocation.getAssignedTo());
+                if (targetUserByEmail.isPresent()) {
+                    recipientEmail = targetUserByEmail.get().getUserEmail();
+                }
+            }
+            if (recipientEmail != null) {
+                notificationService.sendAllocationEmail(
+                    recipientEmail,
+                    allocation.getAssignedTo(),
+                    asset.getAssetName(),
+                    asset.getAssetCode(),
+                    "RETURNED"
+                );
+            }
         } catch (Exception ex) {
             // Log or ignore to prevent breaking the transaction
         }
@@ -217,7 +250,7 @@ public class AssetAllocationServiceImpl implements AssetAllocationService {
         dto.setAssetId(a.getAsset().getAssetId());
         dto.setAssetName(a.getAsset().getAssetName());
         dto.setAssetCode(a.getAsset().getAssetCode());
-        dto.setLocationName(a.getAsset().getLocationName());
+        dto.setLocationName(a.getAsset().getLocation() != null ? a.getAsset().getLocation().getLocationName() : null);
         dto.setAssignedTo(a.getAssignedTo());
         dto.setAssignedBy(a.getAssignedBy());
         dto.setAssignedDate(a.getAssignedDate());

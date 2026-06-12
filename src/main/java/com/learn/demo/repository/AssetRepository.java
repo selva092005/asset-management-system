@@ -14,14 +14,15 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
 
     @Query("""
     SELECT a FROM Asset a
+    LEFT JOIN a.location loc
     WHERE a.deleted = false
     AND (:keyword IS NULL OR
          a.assetName LIKE %:keyword% OR
          a.assetCode LIKE %:keyword% OR
          a.serialNumber LIKE %:keyword% OR
-         a.locationName LIKE %:keyword%)
+         loc.locationName LIKE %:keyword%)
     AND (:type IS NULL OR a.assetType.typeName = :type)
-    AND (:location IS NULL OR a.locationName = :location)
+    AND (:location IS NULL OR loc.locationName = :location)
     AND (:status IS NULL OR a.status = :status)
     """)
     Page<Asset> searchAssets(
@@ -52,7 +53,7 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
         SELECT COUNT(a) > 0 FROM Asset a
         WHERE a.deleted = false
         AND a.assetName = :assetName
-        AND a.locationName = :locationName
+        AND a.location.locationName = :locationName
     """)
     boolean existsByAssetNameAndLocationName(
         @Param("assetName") String assetName,
@@ -81,16 +82,16 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
     List<Object[]> countGroupByType();
 
     @Query("""
-        SELECT a.locationName, COUNT(a) FROM Asset a
+        SELECT a.location.locationName, COUNT(a) FROM Asset a
         WHERE a.deleted = false
-        GROUP BY a.locationName
+        GROUP BY a.location.locationName
     """)
     List<Object[]> countGroupByLocation();
 
     @Query("""
-        SELECT a.companyName, COUNT(a) FROM Asset a
-        WHERE a.deleted = false AND a.companyName IS NOT NULL
-        GROUP BY a.companyName
+        SELECT a.location.company.companyName, COUNT(a) FROM Asset a
+        WHERE a.deleted = false AND a.location.company.companyName IS NOT NULL
+        GROUP BY a.location.company.companyName
     """)
     List<Object[]> countGroupByCompany();
 }

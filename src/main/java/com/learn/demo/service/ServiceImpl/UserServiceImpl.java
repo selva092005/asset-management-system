@@ -51,6 +51,11 @@ public class UserServiceImpl implements UserService {
     private final JwtUtil jwtUtil;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final com.learn.demo.repository.AssetAllocationRepository assetAllocationRepository;
+    private final com.learn.demo.service.EmailService emailService;
+
+    @org.springframework.beans.factory.annotation.Value("${app.frontend-url:http://localhost:5173}")
+    private String frontendUrl;
 
     // ─────────────────────────────────────────────
     // LOGIN
@@ -104,7 +109,28 @@ public class UserServiceImpl implements UserService {
         // ✅ Encode password before saving
         user.setUserPassword(passwordEncoder.encode(dto.getUserPassword()));
 
-        return userMapper.toResponseDTO(repository.save(user));
+        User savedUser = repository.save(user);
+
+        try {
+            String welcomeMsg = String.format(
+                "Welcome to the Asset Management System, %s!<br/><br/>" +
+                "Your account has been successfully set up with the role of <strong>%s</strong>.<br/>" +
+                "You can now log in using your registered email: <strong>%s</strong>.",
+                savedUser.getUserName(),
+                savedUser.getUserRole(),
+                savedUser.getUserEmail()
+            );
+            String htmlContent = com.learn.demo.util.EmailTemplateBuilder.buildGeneralEmail(
+                "Account Setup Successful",
+                welcomeMsg,
+                frontendUrl
+            );
+            emailService.sendHtmlEmail(savedUser.getUserEmail(), "Welcome to AMS — Account Ready", htmlContent);
+        } catch (Exception ex) {
+            // Ignore email errors to prevent blocking user creation
+        }
+
+        return userMapper.toResponseDTO(savedUser);
     }
 
     // ─────────────────────────────────────────────
@@ -198,6 +224,13 @@ public class UserServiceImpl implements UserService {
                 .getContext().getAuthentication().getName();
         if (user.getUserEmail().equalsIgnoreCase(loggedInEmail)) {
             throw new BusinessRuleException("You cannot delete your own account.");
+        }
+
+        // Prevent deleting users with active allocations
+        boolean hasActiveAllocations = assetAllocationRepository.existsByAssignedToAndStatus(user.getUserName(), "ACTIVE")
+                || assetAllocationRepository.existsByAssignedToAndStatus(user.getUserEmail(), "ACTIVE");
+        if (hasActiveAllocations) {
+            throw new BusinessRuleException("Cannot delete user with active asset allocations. Return the assets first.");
         }
 
         user.setDeleted(true);

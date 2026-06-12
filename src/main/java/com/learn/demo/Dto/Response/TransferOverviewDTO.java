@@ -12,4 +12,5 @@ public class TransferOverviewDTO {
     private long pending;
     private long approved;
     private long rejected;
+    private long inTransit;
 }

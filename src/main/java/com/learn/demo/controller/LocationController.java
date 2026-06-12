@@ -97,10 +97,12 @@ public class LocationController {
 
     // MANAGER + ADMIN — view all
     @GetMapping
-    public ResponseEntity<Apiresponse> getAll() {
+    public ResponseEntity<Apiresponse> getAll(
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String search) {
         return ResponseEntity.ok(
             new Apiresponse(HttpStatus.OK.value(), "All locations",
-                locationService.getAllLocations())
+                locationService.getAllLocations(type, search))
         );
     }
 

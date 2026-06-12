@@ -1,7 +1,5 @@
 package com.learn.demo.controller;
 
-import java.util.List;
-
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -10,7 +8,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.learn.demo.dto.response.Apiresponse;
-import com.learn.demo.model.Notification;
 import com.learn.demo.service.NotificationService;
 
 import lombok.RequiredArgsConstructor;

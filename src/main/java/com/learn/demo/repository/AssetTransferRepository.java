@@ -17,4 +17,16 @@ public interface AssetTransferRepository extends JpaRepository<AssetTransfer, Lo
     List<AssetTransfer> findByAsset_AssetIdOrderByRequestedAtDesc(Long assetId);
 
     long countByStatus(String status);
+
+    boolean existsByAsset_AssetIdAndStatus(Long assetId, String status);
+
+    @org.springframework.data.jpa.repository.Query("SELECT t FROM AssetTransfer t WHERE " +
+            "(:status IS NULL OR t.status = :status) AND " +
+            "(cast(:startDate as timestamp) IS NULL OR t.requestedAt >= :startDate) AND " +
+            "(cast(:endDate as timestamp) IS NULL OR t.requestedAt <= :endDate)")
+    Page<AssetTransfer> findByFilters(
+            @org.springframework.data.repository.query.Param("status") String status,
+            @org.springframework.data.repository.query.Param("startDate") java.time.LocalDateTime startDate,
+            @org.springframework.data.repository.query.Param("endDate") java.time.LocalDateTime endDate,
+            Pageable pageable);
 }

@@ -20,7 +20,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @SQLRestriction("deleted = false")
 @Data
-@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@EqualsAndHashCode(callSuper = false, onlyExplicitlyIncluded = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class Asset extends BaseEntity {
@@ -56,9 +56,13 @@ public class Asset extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String qrCode;
 
-    private String locationName;
+    @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
+    @JoinColumn(name = "location_id")
+    private Location location;
 
-    private String companyName;
+    @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
+    @JoinColumn(name = "company_id")
+    private Company company;
 
     // Image file name — e.g. "asset-1.jpg"
     private String imagePath;

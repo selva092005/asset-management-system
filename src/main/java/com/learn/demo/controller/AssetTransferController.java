@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.learn.demo.dto.request.AssetTransferActionDTO;
 import com.learn.demo.dto.request.AssetTransferRequestDTO;
+import com.learn.demo.dto.request.BulkTransferActionDTO;
+import com.learn.demo.dto.request.BulkTransferRequestDTO;
 import com.learn.demo.dto.response.Apiresponse;
 import com.learn.demo.service.AssetTransferService;
 
@@ -33,6 +35,14 @@ public class AssetTransferController {
     public ResponseEntity<Apiresponse> requestTransfer(@Valid @RequestBody AssetTransferRequestDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(
             new Apiresponse(HttpStatus.CREATED.value(), "Transfer request created", service.requestTransfer(dto))
+        );
+    }
+
+    // ── REQUEST BULK TRANSFER (Manager + Admin) ───────────────────────────────
+    @PostMapping("/bulk")
+    public ResponseEntity<Apiresponse> requestBulkTransfer(@Valid @RequestBody BulkTransferRequestDTO dto) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+            new Apiresponse(HttpStatus.CREATED.value(), "Bulk transfer requests created", service.requestBulkTransfer(dto))
         );
     }
 
@@ -56,6 +66,43 @@ public class AssetTransferController {
         );
     }
 
+    // ── RECEIVE / CONFIRM RECEIPT (Manager + Admin) ───────────────────────────
+    @PutMapping("/{id}/receive")
+    public ResponseEntity<Apiresponse> receive(
+            @PathVariable Long id,
+            @Valid @RequestBody AssetTransferActionDTO dto) {
+        return ResponseEntity.ok(
+            new Apiresponse(HttpStatus.OK.value(), "Transfer completed / receipt confirmed", service.receiveTransfer(id, dto))
+        );
+    }
+
+    // ── APPROVE BULK TRANSFERS (Admin only) ──────────────────────────────────
+    @PutMapping("/bulk/approve")
+    public ResponseEntity<Apiresponse> approveBulk(
+            @Valid @RequestBody BulkTransferActionDTO dto) {
+        return ResponseEntity.ok(
+            new Apiresponse(HttpStatus.OK.value(), "Bulk transfers approved", service.approveBulkTransfers(dto))
+        );
+    }
+
+    // ── REJECT BULK TRANSFERS (Admin only) ───────────────────────────────────
+    @PutMapping("/bulk/reject")
+    public ResponseEntity<Apiresponse> rejectBulk(
+            @Valid @RequestBody BulkTransferActionDTO dto) {
+        return ResponseEntity.ok(
+            new Apiresponse(HttpStatus.OK.value(), "Bulk transfers rejected", service.rejectBulkTransfers(dto))
+        );
+    }
+
+    // ── RECEIVE BULK TRANSFERS (Manager + Admin) ─────────────────────────────
+    @PutMapping("/bulk/receive")
+    public ResponseEntity<Apiresponse> receiveBulk(
+            @Valid @RequestBody BulkTransferActionDTO dto) {
+        return ResponseEntity.ok(
+            new Apiresponse(HttpStatus.OK.value(), "Bulk transfers completed / receipt confirmed", service.receiveBulkTransfers(dto))
+        );
+    }
+
     // ── GET OVERVIEW STATS ────────────────────────────────────────────────────
     @GetMapping("/overview")
     public ResponseEntity<Apiresponse> getOverview() {
@@ -64,17 +111,19 @@ public class AssetTransferController {
         );
     }
 
-    // ── GET ALL (paginated + optional status filter) ──────────────────────────
+    // ── GET ALL (paginated + optional status filter + optional date filters) ──────────────────────────
     @GetMapping
     public ResponseEntity<Apiresponse> getAllTransfers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String status) {
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate startDate,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate endDate) {
 
         PageRequest pageable = PageRequest.of(page, size, Sort.by("requestedAt").descending());
         return ResponseEntity.ok(
             new Apiresponse(HttpStatus.OK.value(), "Transfers retrieved",
-                service.getAllTransfers(status, pageable))
+                service.getAllTransfers(status, startDate, endDate, pageable))
         );
     }
 
@@ -92,5 +141,18 @@ public class AssetTransferController {
         return ResponseEntity.ok(
             new Apiresponse(HttpStatus.OK.value(), "Transfers for asset", service.getTransfersByAsset(assetId))
         );
+    }
+
+    // ── EXPORT TO EXCEL ───────────────────────────────────────────────────────
+    @GetMapping("/export")
+    public ResponseEntity<org.springframework.core.io.Resource> exportToExcel() {
+        java.io.ByteArrayOutputStream out = service.exportToExcel();
+        org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(out.toByteArray());
+
+        return ResponseEntity.ok()
+            .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=asset_transfers_log.xlsx")
+            .contentType(org.springframework.http.MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+            .contentLength(out.size())
+            .body(resource);
     }
 }

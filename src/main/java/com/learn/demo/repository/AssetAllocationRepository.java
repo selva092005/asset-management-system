@@ -20,6 +20,8 @@ public interface AssetAllocationRepository
 
     boolean existsByAsset_AssetIdAndStatus(Long assetId, String status);
 
+    boolean existsByAssignedToAndStatus(String assignedTo, String status);
+
     List<AssetAllocation> findByStatusOrderByAssignedDateDesc(String status);
 
     Page<AssetAllocation> findAllByOrderByAssignedDateDesc(Pageable pageable);

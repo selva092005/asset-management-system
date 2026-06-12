@@ -14,7 +14,7 @@ public interface AssetAllocationService {
 
     AssetAllocationResponseDTO allocate(AssetAllocationRequestDTO dto);
 
-    AssetAllocationResponseDTO returnAsset(Long allocationId);
+    AssetAllocationResponseDTO returnAsset(Long allocationId, LocalDate returnDate);
 
     // ── existing – no filters ─────────────────────────────────────────────────
     Page<AssetAllocationResponseDTO> getAllAllocations(Pageable pageable);

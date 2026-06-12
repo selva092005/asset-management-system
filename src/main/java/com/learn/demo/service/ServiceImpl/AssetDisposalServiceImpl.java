@@ -21,6 +21,7 @@ import com.learn.demo.model.Asset;
 import com.learn.demo.model.AssetDisposal;
 import com.learn.demo.repository.AssetDisposalRepository;
 import com.learn.demo.repository.AssetRepository;
+import com.learn.demo.service.NotificationService;
 import com.learn.demo.service.AssetDisposalService;
 
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class AssetDisposalServiceImpl implements AssetDisposalService {
 
     private final AssetDisposalRepository disposalRepository;
     private final AssetRepository assetRepository;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -39,12 +41,11 @@ public class AssetDisposalServiceImpl implements AssetDisposalService {
         Asset asset = assetRepository.findById(dto.getAssetId())
             .orElseThrow(() -> new ResourceNotFoundException("Asset not found with id: " + dto.getAssetId()));
 
-        // Only AVAILABLE, DAMAGED, or UNDER_MAINTENANCE assets can be disposed
+        // Only AVAILABLE or DAMAGED assets can be disposed
         if (!"AVAILABLE".equalsIgnoreCase(asset.getStatus()) &&
-                !"DAMAGED".equalsIgnoreCase(asset.getStatus()) &&
-                !"UNDER_MAINTENANCE".equalsIgnoreCase(asset.getStatus())) {
+                !"DAMAGED".equalsIgnoreCase(asset.getStatus())) {
             throw new BusinessRuleException(
-                "Only AVAILABLE, DAMAGED or UNDER_MAINTENANCE assets can be disposed. Current status: " + asset.getStatus()
+                "Only AVAILABLE or DAMAGED assets can be disposed. Current status: " + asset.getStatus()
             );
         }
 
@@ -61,7 +62,22 @@ public class AssetDisposalServiceImpl implements AssetDisposalService {
         disposal.setDisposedBy(dto.getDisposedBy());
         disposal.setDisposalValue(dto.getDisposalValue());
 
-        return toDTO(disposalRepository.save(disposal));
+        AssetDisposalResponseDTO response = toDTO(disposalRepository.save(disposal));
+
+        try {
+            notificationService.notifyAdmins(String.format(
+                "Asset '%s' (%s) has been DISPOSED by %s. Method: %s, Value: %s", 
+                asset.getAssetName(), 
+                asset.getAssetCode() != null ? asset.getAssetCode() : "N/A", 
+                dto.getDisposedBy(), 
+                dto.getDisposalMethod(), 
+                dto.getDisposalValue() != null ? dto.getDisposalValue().toString() : "0"
+            ));
+        } catch (Exception ex) {
+            // ignore to avoid blocking transaction
+        }
+
+        return response;
     }
 
     @Override

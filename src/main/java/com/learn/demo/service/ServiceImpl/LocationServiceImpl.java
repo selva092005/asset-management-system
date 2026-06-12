@@ -37,12 +37,20 @@ public class LocationServiceImpl implements LocationService {
         Location location = new Location();
         location.setLocationName(dto.getLocationName());
         location.setCompany(company);
+        location.setLatitude(dto.getLatitude());
+        location.setLongitude(dto.getLongitude());
+        location.setLocationType(dto.getLocationType());
+        location.setAddress(dto.getAddress());
+        location.setContactPerson(dto.getContactPerson());
         return toResponse(repository.save(location));
     }
 
     @Override
-    public List<LocationResponseDTO> getAllLocations() {
-        return repository.findAll().stream()
+    public List<LocationResponseDTO> getAllLocations(String locationType, String search) {
+        String searchParam = (search == null || search.trim().isEmpty()) ? null : search.trim();
+        String typeParam = (locationType == null || locationType.trim().isEmpty()) ? null : locationType.trim();
+
+        return repository.searchLocations(typeParam, searchParam).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -79,6 +87,11 @@ public class LocationServiceImpl implements LocationService {
 
         location.setLocationName(dto.getLocationName());
         location.setCompany(company);
+        location.setLatitude(dto.getLatitude());
+        location.setLongitude(dto.getLongitude());
+        location.setLocationType(dto.getLocationType());
+        location.setAddress(dto.getAddress());
+        location.setContactPerson(dto.getContactPerson());
         return toResponse(repository.save(location));
     }
 
@@ -97,8 +110,15 @@ public class LocationServiceImpl implements LocationService {
         dto.setLocationId(location.getLocationId());
         dto.setLocationName(location.getLocationName());
         dto.setLocationCode(AssetCodeGenerator.getLocationCode(location.getLocationName()));
-        dto.setCompanyId(location.getCompany().getCompanyId());
-        dto.setCompanyName(location.getCompany().getCompanyName());
+        if (location.getCompany() != null) {
+            dto.setCompanyId(location.getCompany().getCompanyId());
+            dto.setCompanyName(location.getCompany().getCompanyName());
+        }
+        dto.setLatitude(location.getLatitude());
+        dto.setLongitude(location.getLongitude());
+        dto.setLocationType(location.getLocationType());
+        dto.setAddress(location.getAddress());
+        dto.setContactPerson(location.getContactPerson());
         return dto;
     }
 }

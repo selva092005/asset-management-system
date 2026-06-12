@@ -3,10 +3,15 @@ package com.learn.demo.mapper;
 import com.learn.demo.dto.request.UserRequestDTO;
 import com.learn.demo.dto.response.UserResponseDTO;
 import com.learn.demo.model.User;
+import com.learn.demo.repository.AssetAllocationRepository;
 import org.springframework.stereotype.Component;
+import lombok.RequiredArgsConstructor;
 
 @Component
+@RequiredArgsConstructor
 public class UserMapper {
+
+    private final AssetAllocationRepository assetAllocationRepository;
 
     // RequestDTO → Entity
     public User toEntity(UserRequestDTO dto) {
@@ -35,6 +40,11 @@ public class UserMapper {
         dto.setDesignation(user.getDesignation());
         dto.setCreatedAt(user.getCreatedAt());
         dto.setUpdatedAt(user.getUpdatedAt());
+
+        boolean hasActive = assetAllocationRepository.existsByAssignedToAndStatus(user.getUserName(), "ACTIVE")
+                || assetAllocationRepository.existsByAssignedToAndStatus(user.getUserEmail(), "ACTIVE");
+        dto.setHasActiveAllocations(hasActive);
+
         return dto;
     }
 

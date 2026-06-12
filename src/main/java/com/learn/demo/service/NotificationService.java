@@ -4,6 +4,8 @@ import java.util.List;
 
 import com.learn.demo.model.Notification;
 
+import com.learn.demo.model.AssetTransfer;
+
 public interface NotificationService {
 
     List<Notification> getMyNotifications();
@@ -19,4 +21,8 @@ public interface NotificationService {
     void sendNotification(String message, String userEmail);
 
     void notifyAdmins(String message);
+
+    void notifyAdminsWithTransfer(AssetTransfer transfer);
+
+    void sendAllocationEmail(String employeeEmail, String employeeName, String assetName, String assetCode, String actionType);
 }

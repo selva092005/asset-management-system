@@ -1,17 +1,20 @@
 package com.learn.demo.mapper;
 
 import org.springframework.stereotype.Component;
+import lombok.RequiredArgsConstructor;
 
 import com.learn.demo.dto.request.AssetRequestDTO;
 import com.learn.demo.dto.response.AssetResponseDTO;
 import com.learn.demo.model.Asset;
 import com.learn.demo.model.AssetType;
+import com.learn.demo.model.Location;
 
 @Component
+@RequiredArgsConstructor
 public class AssetMapper {
 
     // RequestDTO → Entity
-    public Asset toEntity(AssetRequestDTO dto, AssetType assetType) {
+    public Asset toEntity(AssetRequestDTO dto, AssetType assetType, Location location) {
         Asset asset = new Asset();
         asset.setAssetName(dto.getAssetName());
         asset.setSerialNumber(dto.getSerialNumber());
@@ -23,8 +26,8 @@ public class AssetMapper {
         asset.setStatus(dto.getStatus());
         asset.setAssetCondition(dto.getAssetCondition());
         asset.setNotes(dto.getNotes());
-        asset.setLocationName(dto.getLocationName());
-        asset.setCompanyName(dto.getCompanyName());
+        asset.setLocation(location);
+        asset.setCompany(location != null ? location.getCompany() : null);
         asset.setImagePath(dto.getImagePath());
         asset.setAssetType(assetType);
         return asset;
@@ -44,8 +47,20 @@ public class AssetMapper {
         dto.setStatus(asset.getStatus());
         dto.setAssetCondition(asset.getAssetCondition());
         dto.setNotes(asset.getNotes());
-        dto.setLocationName(asset.getLocationName());
-        dto.setCompanyName(asset.getCompanyName());
+        
+        if (asset.getLocation() != null) {
+            dto.setLocationId(asset.getLocation().getLocationId());
+            dto.setLocationName(asset.getLocation().getLocationName());
+            dto.setLatitude(asset.getLocation().getLatitude());
+            dto.setLongitude(asset.getLocation().getLongitude());
+        }
+        
+        if (asset.getCompany() != null) {
+            dto.setCompanyName(asset.getCompany().getCompanyName());
+        } else if (asset.getLocation() != null && asset.getLocation().getCompany() != null) {
+            dto.setCompanyName(asset.getLocation().getCompany().getCompanyName());
+        }
+        
         dto.setAssetCode(asset.getAssetCode());
         dto.setQrCode(asset.getQrCode());
         dto.setImagePath(asset.getImagePath());
@@ -59,7 +74,7 @@ public class AssetMapper {
     }
 
     // Apply updates from RequestDTO to existing Entity (for PUT)
-    public void updateEntityFromDTO(AssetRequestDTO dto, Asset asset, AssetType assetType) {
+    public void updateEntityFromDTO(AssetRequestDTO dto, Asset asset, AssetType assetType, Location location) {
         asset.setAssetName(dto.getAssetName());
         asset.setSerialNumber(dto.getSerialNumber());
         asset.setBrand(dto.getBrand());
@@ -70,8 +85,10 @@ public class AssetMapper {
         asset.setStatus(dto.getStatus());
         asset.setAssetCondition(dto.getAssetCondition());
         asset.setNotes(dto.getNotes());
-        asset.setLocationName(dto.getLocationName());
-        asset.setCompanyName(dto.getCompanyName());
+        if (location != null) {
+            asset.setLocation(location);
+            asset.setCompany(location.getCompany());
+        }
         if (dto.getImagePath() != null) {
             asset.setImagePath(dto.getImagePath());
         }

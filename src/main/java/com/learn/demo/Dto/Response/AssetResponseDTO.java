@@ -22,8 +22,11 @@ public class AssetResponseDTO {
     private String typeName;
     private String assetCode;
     private String qrCode;
+    private Long locationId;
     private String locationName;
     private String companyName;
+    private java.math.BigDecimal latitude;
+    private java.math.BigDecimal longitude;
     private String imagePath;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

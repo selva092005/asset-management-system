@@ -24,4 +24,19 @@ public class Location extends BaseEntity {
     @ManyToOne
     @JoinColumn(name = "company_id")
     private Company company;
+
+    @Column(name = "latitude", precision = 9, scale = 6)
+    private java.math.BigDecimal latitude;
+
+    @Column(name = "longitude", precision = 9, scale = 6)
+    private java.math.BigDecimal longitude;
+
+    @Column(name = "location_type")
+    private String locationType;
+
+    @Column(name = "address", length = 500)
+    private String address;
+
+    @Column(name = "contact_person")
+    private String contactPerson;
 }

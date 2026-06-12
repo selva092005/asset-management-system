@@ -12,9 +12,11 @@ import com.learn.demo.dto.response.AssetLocationHistoryResponseDTO;
 import com.learn.demo.exception.BusinessRuleException;
 import com.learn.demo.exception.ResourceNotFoundException;
 import com.learn.demo.model.Asset;
+import com.learn.demo.model.Location;
 import com.learn.demo.model.AssetLocationHistory;
 import com.learn.demo.repository.AssetLocationHistoryRepository;
 import com.learn.demo.repository.AssetRepository;
+import com.learn.demo.repository.LocationRepository;
 import com.learn.demo.service.AssetLocationHistoryService;
 
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ public class AssetLocationHistoryServiceImpl implements AssetLocationHistoryServ
 
     private final AssetRepository assetRepository;
     private final AssetLocationHistoryRepository historyRepository;
+    private final LocationRepository locationRepository;
 
     // ─────────────────────────────────────────────
     // MOVE ASSET  (transaction: both saves succeed or both roll back)
@@ -43,11 +46,21 @@ public class AssetLocationHistoryServiceImpl implements AssetLocationHistoryServ
             throw new BusinessRuleException("Cannot move a " + status.toLowerCase() + " asset.");
         }
 
-        if (dto.getNewLocation().equalsIgnoreCase(asset.getLocationName())) {
+        String assetLocationName = asset.getLocation() != null ? asset.getLocation().getLocationName() : null;
+        if (dto.getNewLocation().equalsIgnoreCase(assetLocationName)) {
             throw new BusinessRuleException("Asset is already at location: " + dto.getNewLocation());
         }
 
-        String oldLocation = asset.getLocationName();
+        String oldLocation = assetLocationName;
+
+        String assetCompany = (asset.getLocation() != null && asset.getLocation().getCompany() != null)
+            ? asset.getLocation().getCompany().getCompanyName()
+            : "";
+
+        Location destination = locationRepository.findByLocationNameIgnoreCaseAndCompany_CompanyNameIgnoreCase(
+            dto.getNewLocation().trim(),
+            assetCompany
+        ).orElseThrow(() -> new ResourceNotFoundException("Location not found with name: " + dto.getNewLocation()));
 
         // 2. ① Save history row
         AssetLocationHistory history = new AssetLocationHistory();
@@ -61,7 +74,8 @@ public class AssetLocationHistoryServiceImpl implements AssetLocationHistoryServ
         AssetLocationHistory saved = historyRepository.save(history);
 
         // 3. ② Update asset's current location
-        asset.setLocationName(dto.getNewLocation());
+        asset.setLocation(destination);
+        asset.setCompany(destination.getCompany());
         assetRepository.save(asset);
 
         // 4. Return the saved history record as a DTO

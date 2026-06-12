@@ -29,7 +29,7 @@ public class AssetRequestDTO {
     private Double cost;
 
     @NotBlank(message = "Status is required")
-    @Pattern(regexp = "AVAILABLE|ASSIGNED|DAMAGED|UNDER_MAINTENANCE", message = "Status must be AVAILABLE, ASSIGNED, DAMAGED or UNDER_MAINTENANCE")
+    @Pattern(regexp = "AVAILABLE|ASSIGNED|DAMAGED|UNDER_MAINTENANCE|IN_TRANSIT", message = "Status must be AVAILABLE, ASSIGNED, DAMAGED, UNDER_MAINTENANCE or IN_TRANSIT")
     private String status;
 
     @Pattern(regexp = "^(GOOD|FAIR|POOR)$", message = "Condition must be GOOD, FAIR or POOR")
@@ -39,11 +39,8 @@ public class AssetRequestDTO {
     @NotNull(message = "Asset type ID is required")
     private Long typeId;
 
-    @NotBlank(message = "Location name is required")
-    private String locationName;
-
-    @NotBlank(message = "Company name is required")
-    private String companyName; // ✅ NEW — used for asset code e.g. "Hero" → "H"
+    @NotNull(message = "Location ID is required")
+    private Long locationId;
 
     private String imagePath;   // ✅ FIX: file name returned by /api/files/upload, saved to DB
 }
