@@ -101,6 +101,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/transfers/*/approve").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/transfers/*/reject").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/transfers/*/receive").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers(HttpMethod.PUT, "/api/transfers/*/cancel").hasAnyRole("ADMIN", "MANAGER")
                         .requestMatchers(HttpMethod.PUT, "/api/transfers/**").hasRole("ADMIN")
 
                         // ── Reports ───────────────────────────────────────────────────

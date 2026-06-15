@@ -40,4 +40,6 @@ public interface UserService {
     ByteArrayOutputStream generateTemplate();
 
     java.util.Map<String, Long> getUserSummaryStats();
+
+    ByteArrayOutputStream generateFailedRowsExcel(MultipartFile file);
 }

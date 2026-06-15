@@ -318,6 +318,7 @@ public class AssetTransferServiceImpl implements AssetTransferService {
         transfer.setRemarks(dto.getRemarks() != null && !dto.getRemarks().isBlank() ? dto.getRemarks() : "Confirmed Receipt");
         transfer.setResolvedBy(currentUser.getUserName() != null ? currentUser.getUserName() : currentUser.getUserEmail());
         transfer.setResolvedAt(LocalDateTime.now());
+        transfer.setReceivedDate(dto.getReceivedDate() != null ? dto.getReceivedDate() : java.time.LocalDate.now());
 
         // Update asset location and restore status to AVAILABLE
         Asset asset = transfer.getAsset();
@@ -499,6 +500,7 @@ public class AssetTransferServiceImpl implements AssetTransferService {
             transfer.setRemarks(dto.getRemarks() != null && !dto.getRemarks().isBlank() ? dto.getRemarks() : "Confirmed Receipt");
             transfer.setResolvedBy(currentUser.getUserName() != null ? currentUser.getUserName() : currentUser.getUserEmail());
             transfer.setResolvedAt(LocalDateTime.now());
+            transfer.setReceivedDate(dto.getReceivedDate() != null ? dto.getReceivedDate() : java.time.LocalDate.now());
 
             Asset asset = transfer.getAsset();
             String assetCompany = (asset.getLocation() != null && asset.getLocation().getCompany() != null)
@@ -599,9 +601,81 @@ public class AssetTransferServiceImpl implements AssetTransferService {
         return toDTO(transferRepository.save(transfer));
     }
 
+    // ── CANCEL TRANSFER ───────────────────────────────────────────────────────
+    @Override
+    @Transactional
+    public AssetTransferResponseDTO cancelTransfer(Long transferId, AssetTransferActionDTO dto) {
+
+        AssetTransfer transfer = getTransferOrThrow(transferId);
+
+        if (!"PENDING".equalsIgnoreCase(transfer.getStatus()) && !"IN_TRANSIT".equalsIgnoreCase(transfer.getStatus())) {
+            throw new BusinessRuleException("Only PENDING or IN_TRANSIT transfers can be cancelled.");
+        }
+
+        // Resolve authentic canceler from security context
+        String loggedInEmail = org.springframework.security.core.context.SecurityContextHolder
+            .getContext().getAuthentication().getName();
+
+        User currentUser = userRepository.findByUserEmailAndDeletedFalse(loggedInEmail)
+            .orElseThrow(() -> new ResourceNotFoundException("Logged-in user details not found."));
+
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(currentUser.getUserRole());
+        String currentUserName = currentUser.getUserName();
+        String currentUserEmail = currentUser.getUserEmail();
+
+        // Check ownership: original requester or admin
+        boolean isRequester = transfer.getRequestedBy() != null &&
+            (transfer.getRequestedBy().equalsIgnoreCase(currentUserName) || transfer.getRequestedBy().equalsIgnoreCase(currentUserEmail));
+
+        if ("IN_TRANSIT".equalsIgnoreCase(transfer.getStatus()) && !isAdmin) {
+            throw new BusinessRuleException("Only administrators can cancel transfers already in transit.");
+        }
+
+        if (!isAdmin && !isRequester) {
+            throw new BusinessRuleException("You are not authorized to cancel this transfer request.");
+        }
+
+        // Revert asset status if the transfer was already IN_TRANSIT
+        if ("IN_TRANSIT".equalsIgnoreCase(transfer.getStatus())) {
+            Asset asset = transfer.getAsset();
+            asset.setStatus("AVAILABLE");
+            assetRepository.save(asset);
+        }
+
+        transfer.setStatus("CANCELLED");
+        transfer.setResolvedBy(currentUser.getUserName() != null ? currentUser.getUserName() : currentUser.getUserEmail());
+        transfer.setRemarks(dto.getRemarks() != null && !dto.getRemarks().isBlank() ? dto.getRemarks() : "Cancelled by requester");
+        transfer.setResolvedAt(LocalDateTime.now());
+
+        // Notify requester if cancelled by someone else (e.g., Admin)
+        if (!currentUser.getUserName().equalsIgnoreCase(transfer.getRequestedBy()) && 
+            !currentUser.getUserEmail().equalsIgnoreCase(transfer.getRequestedBy())) {
+            String requesterEmail = null;
+            java.util.Optional<User> requesterOpt = userRepository.findByUserEmailAndDeletedFalse(transfer.getRequestedBy());
+            if (requesterOpt.isPresent()) {
+                requesterEmail = requesterOpt.get().getUserEmail();
+            } else {
+                requesterEmail = userRepository.findAll().stream()
+                    .filter(u -> !u.isDeleted() && transfer.getRequestedBy().equalsIgnoreCase(u.getUserName()))
+                    .map(User::getUserEmail)
+                    .findFirst()
+                    .orElse(null);
+            }
+            if (requesterEmail != null) {
+                notificationService.sendNotification(
+                    String.format("Your transfer request for asset '%s' was CANCELLED by admin %s. Remarks: %s",
+                        transfer.getAsset().getAssetName(), transfer.getResolvedBy(), transfer.getRemarks()),
+                    requesterEmail
+                );
+            }
+        }
+
+        return toDTO(transferRepository.save(transfer));
+    }
+
     @Override
     @Transactional(readOnly = true)
-    public Page<AssetTransferResponseDTO> getAllTransfers(String status, java.time.LocalDate startDate, java.time.LocalDate endDate, Pageable pageable) {
+    public Page<AssetTransferResponseDTO> getAllTransfers(String search, String status, String priority, String requestedBy, java.time.LocalDate startDate, java.time.LocalDate endDate, Pageable pageable) {
         java.time.LocalDateTime start = null;
         java.time.LocalDateTime end = null;
         if (startDate != null) {
@@ -611,8 +685,11 @@ public class AssetTransferServiceImpl implements AssetTransferService {
             end = endDate.atTime(23, 59, 59, 999999999);
         }
         String statusUpper = (status != null && !status.isBlank()) ? status.toUpperCase() : null;
+        String priorityUpper = (priority != null && !priority.isBlank()) ? priority.toUpperCase() : null;
+        String reqByVal = (requestedBy != null && !requestedBy.isBlank()) ? requestedBy : null;
+        String searchVal = (search != null && !search.isBlank()) ? search.trim() : null;
 
-        return transferRepository.findByFilters(statusUpper, start, end, pageable)
+        return transferRepository.findByFilters(searchVal, statusUpper, priorityUpper, reqByVal, start, end, pageable)
             .map(this::toDTO);
     }
 
@@ -676,6 +753,7 @@ public class AssetTransferServiceImpl implements AssetTransferService {
         dto.setResolvedBy(t.getResolvedBy());
         dto.setStatus(t.getStatus());
         dto.setRemarks(t.getRemarks());
+        dto.setReceivedDate(t.getReceivedDate());
         dto.setRequestedAt(t.getRequestedAt());
         dto.setResolvedAt(t.getResolvedAt());
         return dto;
@@ -699,7 +777,7 @@ public class AssetTransferServiceImpl implements AssetTransferService {
             headerFont.setColor(org.apache.poi.ss.usermodel.IndexedColors.WHITE.getIndex());
             headerStyle.setFont(headerFont);
 
-            String[] headers = { "Transfer ID", "Asset Name", "Asset Code", "From Location", "To Location", "Priority", "Status", "Reason", "Requested By", "Requested At", "Resolved By", "Resolved At", "Remarks" };
+            String[] headers = { "Transfer ID", "Asset Name", "Asset Code", "From Location", "To Location", "Priority", "Status", "Reason", "Requested By", "Requested At", "Resolved By", "Resolved At", "Received Date", "Remarks" };
             org.apache.poi.ss.usermodel.Row headerRow = sheet.createRow(0);
             headerRow.setHeightInPoints(20);
             for (int i = 0; i < headers.length; i++) {
@@ -723,7 +801,8 @@ public class AssetTransferServiceImpl implements AssetTransferService {
                 row.createCell(9).setCellValue(t.getRequestedAt() != null ? t.getRequestedAt().toString().substring(0, 19).replace("T", " ") : "");
                 row.createCell(10).setCellValue(t.getResolvedBy() != null ? t.getResolvedBy() : "");
                 row.createCell(11).setCellValue(t.getResolvedAt() != null ? t.getResolvedAt().toString().substring(0, 19).replace("T", " ") : "");
-                row.createCell(12).setCellValue(t.getRemarks() != null ? t.getRemarks() : "");
+                row.createCell(12).setCellValue(t.getReceivedDate() != null ? t.getReceivedDate().toString() : "");
+                row.createCell(13).setCellValue(t.getRemarks() != null ? t.getRemarks() : "");
             }
 
             for (int i = 0; i < headers.length; i++) {

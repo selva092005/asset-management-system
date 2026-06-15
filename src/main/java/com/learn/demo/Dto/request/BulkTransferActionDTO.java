@@ -15,4 +15,6 @@ public class BulkTransferActionDTO {
     private String resolvedBy;
 
     private String remarks;
+
+    private java.time.LocalDate receivedDate;
 }

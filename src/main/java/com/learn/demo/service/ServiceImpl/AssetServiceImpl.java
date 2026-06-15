@@ -47,7 +47,9 @@ import com.learn.demo.model.Asset;
 import com.learn.demo.model.AssetType;
 import com.learn.demo.model.Location;
 import com.learn.demo.model.BulkUploadHistory;
+import com.learn.demo.model.AssetAllocation;
 import com.learn.demo.repository.AssetRepository;
+import com.learn.demo.repository.AssetAllocationRepository;
 import com.learn.demo.repository.AssetTypeRepository;
 import com.learn.demo.repository.LocationRepository;
 import com.learn.demo.repository.BulkUploadHistoryRepository;
@@ -68,6 +70,7 @@ public class AssetServiceImpl implements AssetService {
     private final BulkUploadHistoryRepository bulkUploadHistoryRepository;
     private final LocationRepository locationRepository;
     private final AssetTransferRepository assetTransferRepository;
+    private final AssetAllocationRepository allocationRepository;
 
     @org.springframework.beans.factory.annotation.Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
@@ -425,7 +428,7 @@ public class AssetServiceImpl implements AssetService {
                 "assetName*", "serialNumber", "brand", "model",
                 "purchaseDate* (YYYY-MM-DD)", "warrantyExpiry (YYYY-MM-DD)",
                 "cost*", "status*", "assetCondition", "notes",
-                "typeName*", "locationName*", "companyName*", "image"
+                "typeName*", "locationName*", "companyName*", "assignedTo", "image"
             };
             Row headerRow = sheet.createRow(0);
             headerRow.setHeightInPoints(20);
@@ -455,7 +458,19 @@ public class AssetServiceImpl implements AssetService {
                 row.createCell(11).setCellValue(a.getLocation() != null ? nullSafe(a.getLocation().getLocationName()) : "");
                 row.createCell(12).setCellValue((a.getLocation() != null && a.getLocation().getCompany() != null) ? nullSafe(a.getLocation().getCompany().getCompanyName()) : "");
 
-                // Embed image if present
+                // Fetch current assignee if status is ASSIGNED
+                String assignedTo = "";
+                if ("ASSIGNED".equalsIgnoreCase(a.getStatus())) {
+                    List<AssetAllocation> allocations = allocationRepository.findByAsset_AssetIdOrderByAssignedDateDesc(a.getAssetId());
+                    assignedTo = allocations.stream()
+                        .filter(al -> "ACTIVE".equalsIgnoreCase(al.getStatus()))
+                        .map(AssetAllocation::getAssignedTo)
+                        .findFirst()
+                        .orElse("");
+                }
+                row.createCell(13).setCellValue(assignedTo);
+
+                // Embed image if present (column index 14)
                 if (a.getImagePath() != null && !a.getImagePath().isBlank()) {
                     File imageFile = new File(uploadDir, a.getImagePath());
                     if (imageFile.exists() && imageFile.isFile()) {
@@ -477,26 +492,26 @@ public class AssetServiceImpl implements AssetService {
                                 drawing = sheet.createDrawingPatriarch();
                             }
                             ClientAnchor anchor = workbook.getCreationHelper().createClientAnchor();
-                            anchor.setCol1(13); // Column N (Index 13)
+                            anchor.setCol1(14); // Column O (Index 14)
                             anchor.setRow1(i + 1);
-                            anchor.setCol2(14);
+                            anchor.setCol2(15);
                             anchor.setRow2(i + 2);
                             anchor.setAnchorType(ClientAnchor.AnchorType.MOVE_AND_RESIZE);
                             drawing.createPicture(anchor, pictureIdx);
                         } catch (Exception e) {
                             System.err.println("Failed to insert asset image in excel: " + e.getMessage());
-                            row.createCell(13).setCellValue("Error loading image");
+                            row.createCell(14).setCellValue("Error loading image");
                         }
                     } else {
-                        row.createCell(13).setCellValue("No image file");
+                        row.createCell(14).setCellValue("No image file");
                     }
                 } else {
-                    row.createCell(13).setCellValue("No image");
+                    row.createCell(14).setCellValue("No image");
                 }
             }
 
             for (int i = 0; i < headers.length; i++) {
-                if (i == 13) {
+                if (i == 14) {
                     sheet.setColumnWidth(i, 20 * 256);
                 } else {
                     sheet.autoSizeColumn(i);
@@ -802,5 +817,196 @@ public class AssetServiceImpl implements AssetService {
                     return dto;
                 })
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public ByteArrayOutputStream generateFailedRowsExcel(MultipartFile file) {
+        try (XSSFWorkbook sourceWorkbook = new XSSFWorkbook(file.getInputStream());
+             XSSFWorkbook targetWorkbook = new XSSFWorkbook()) {
+            
+            Sheet sourceSheet = sourceWorkbook.getSheetAt(0);
+            Sheet targetSheet = targetWorkbook.createSheet("Failed Rows");
+
+            // Copy styles & headers for the first 4 rows
+            // First row gets "Failure Reason" column header
+            for (int r = 0; r < Math.min(4, sourceSheet.getPhysicalNumberOfRows()); r++) {
+                Row srcRow = sourceSheet.getRow(r);
+                Row tgtRow = targetSheet.createRow(r);
+                if (srcRow == null) continue;
+                
+                for (int c = 0; c < srcRow.getLastCellNum(); c++) {
+                    Cell srcCell = srcRow.getCell(c);
+                    Cell tgtCell = tgtRow.createCell(c);
+                    if (srcCell != null) {
+                        copyCellValue(srcCell, tgtCell);
+                    }
+                }
+                if (r == 0) {
+                    tgtRow.createCell(srcRow.getLastCellNum()).setCellValue("Failure Reason");
+                }
+            }
+
+            int targetRowIdx = 4;
+            Map<String, Integer> seenSerialNumbers = new HashMap<>();
+            Map<String, Integer> seenNameLocationPairs = new HashMap<>();
+
+            for (int i = 4; i <= sourceSheet.getLastRowNum(); i++) {
+                Row row = sourceSheet.getRow(i);
+                if (row == null) continue;
+
+                int rowNum = i + 1;
+                List<String> rowErrors = new ArrayList<>();
+
+                // Extract fields
+                String assetName = getCellString(row, 0);
+                String serialNumber = getCellString(row, 1);
+                String brand = getCellString(row, 2);
+                String model = getCellString(row, 3);
+                String purchaseDateStr = getCellString(row, 4);
+                String warrantyStr = getCellString(row, 5);
+                String costStr = getCellString(row, 6);
+                String status = getCellString(row, 7);
+                String condition = getCellString(row, 8);
+                String notes = getCellString(row, 9);
+                String typeName = getCellString(row, 10);
+                String locationName = getCellString(row, 11);
+                String companyName = getCellString(row, 12);
+
+                // Validation logic
+                if (assetName == null || assetName.isBlank()) {
+                    rowErrors.add("[Asset Name] Asset Name is required");
+                }
+                if (status == null || status.isBlank()) {
+                    rowErrors.add("[Status] Status is required (AVAILABLE / DAMAGED / UNDER_MAINTENANCE)");
+                } else {
+                    String statusUpper = status.toUpperCase(java.util.Locale.ROOT);
+                    if ("ASSIGNED".equals(statusUpper)) {
+                        rowErrors.add("[Status] Status cannot be ASSIGNED via bulk upload");
+                    } else if ("DISPOSED".equals(statusUpper)) {
+                        rowErrors.add("[Status] Status cannot be DISPOSED via bulk upload. Use the Disposal page.");
+                    } else if (!VALID_STATUSES.contains(statusUpper)) {
+                        rowErrors.add("[Status] Invalid status \"" + status + "\". Must be AVAILABLE, DAMAGED or UNDER_MAINTENANCE");
+                    }
+                }
+                if (locationName == null || locationName.isBlank()) {
+                    rowErrors.add("[Location] Location Name is required");
+                }
+                if (companyName == null || companyName.isBlank()) {
+                    rowErrors.add("[Company] Company Name is required");
+                }
+                if (typeName == null || typeName.isBlank()) {
+                    rowErrors.add("[Type] Type is required (IT / Furniture / Mobile / Equipment)");
+                } else {
+                    AssetType assetType = assetTypeRepository.findByTypeNameIgnoreCase(typeName).orElse(null);
+                    if (assetType == null) {
+                        List<String> validTypes = assetTypeRepository.findAll()
+                                .stream().map(AssetType::getTypeName).collect(Collectors.toList());
+                        rowErrors.add("[Type] Type \"" + typeName + "\" not found. Valid values: " + String.join(", ", validTypes));
+                    }
+                }
+
+                // Date checks
+                if (purchaseDateStr == null || purchaseDateStr.isBlank()) {
+                    rowErrors.add("[Purchase Date] Purchase Date is required (YYYY-MM-DD)");
+                } else {
+                    try {
+                        LocalDate.parse(purchaseDateStr);
+                    } catch (Exception e) {
+                        rowErrors.add("[Purchase Date] Invalid date \"" + purchaseDateStr + "\". Use format YYYY-MM-DD");
+                    }
+                }
+                if (warrantyStr != null && !warrantyStr.isBlank()) {
+                    try {
+                        LocalDate.parse(warrantyStr);
+                    } catch (Exception e) {
+                        rowErrors.add("[Warranty Expiry] Invalid date \"" + warrantyStr + "\". Use format YYYY-MM-DD");
+                    }
+                }
+
+                // Cost check
+                if (costStr == null || costStr.isBlank()) {
+                    rowErrors.add("[Cost] Cost is required");
+                } else {
+                    try {
+                        double cost = Double.parseDouble(costStr);
+                        if (cost < 0) {
+                            rowErrors.add("[Cost] Cost must be zero or positive");
+                        }
+                    } catch (NumberFormatException e) {
+                        rowErrors.add("[Cost] Invalid cost \"" + costStr + "\". Must be a number");
+                    }
+                }
+
+                // Duplicate checks
+                boolean hasSerial = serialNumber != null && !serialNumber.isBlank();
+                if (hasSerial) {
+                    if (seenSerialNumbers.containsKey(serialNumber)) {
+                        rowErrors.add("[Serial Number] Serial Number \"" + serialNumber + "\" is duplicate of Row " + seenSerialNumbers.get(serialNumber) + " in this file");
+                    } else if (repository.existsBySerialNumber(serialNumber)) {
+                        rowErrors.add("[Serial Number] Serial Number \"" + serialNumber + "\" already exists in the database");
+                    } else {
+                        seenSerialNumbers.put(serialNumber, rowNum);
+                    }
+                } else {
+                    if (locationName != null && companyName != null && assetName != null && !assetName.isBlank() && !locationName.isBlank() && !companyName.isBlank()) {
+                        String nameLocationKey = assetName.toLowerCase() + "|" + locationName.toLowerCase();
+                        if (seenNameLocationPairs.containsKey(nameLocationKey)) {
+                            rowErrors.add("[Asset Name] Asset \"" + assetName + "\" at \"" + locationName + "\" is duplicate of Row " + seenNameLocationPairs.get(nameLocationKey) + " in this file");
+                        } else if (repository.existsByAssetNameAndLocationName(assetName, locationName)) {
+                            rowErrors.add("[Asset Name] Asset \"" + assetName + "\" at \"" + locationName + "\" already exists in the database");
+                        } else {
+                            seenNameLocationPairs.put(nameLocationKey, rowNum);
+                        }
+                    }
+                }
+
+                // Location lookups
+                if (locationName != null && companyName != null && !locationName.isBlank() && !companyName.isBlank()) {
+                    String cleanLocation = locationName.trim();
+                    String cleanCompany = companyName.trim();
+                    Location location = locationRepository.findByLocationNameIgnoreCaseAndCompany_CompanyNameIgnoreCase(
+                            cleanLocation, cleanCompany).orElse(null);
+                    if (location == null) {
+                        rowErrors.add("[Location] Location \"" + cleanLocation + "\" for company \"" + cleanCompany + "\" not found in database.");
+                    }
+                }
+
+                // If errors present, write row to target workbook
+                if (!rowErrors.isEmpty()) {
+                    Row tgtRow = targetSheet.createRow(targetRowIdx++);
+                    for (int c = 0; c < row.getLastCellNum(); c++) {
+                        Cell srcCell = row.getCell(c);
+                        Cell tgtCell = tgtRow.createCell(c);
+                        if (srcCell != null) {
+                            copyCellValue(srcCell, tgtCell);
+                        }
+                    }
+                    // Write error details in the final column
+                    tgtRow.createCell(row.getLastCellNum()).setCellValue(String.join(" | ", rowErrors));
+                }
+            }
+
+            for (int i = 0; i <= 13; i++) {
+                try {
+                    targetSheet.autoSizeColumn(i);
+                } catch (Exception ignored) {}
+            }
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            targetWorkbook.write(out);
+            return out;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to generate failed rows excel: " + e.getMessage(), e);
+        }
+    }
+
+    private void copyCellValue(Cell src, Cell tgt) {
+        switch (src.getCellType()) {
+            case STRING -> tgt.setCellValue(src.getStringCellValue());
+            case NUMERIC -> tgt.setCellValue(src.getNumericCellValue());
+            case BOOLEAN -> tgt.setCellValue(src.getBooleanCellValue());
+            case FORMULA -> tgt.setCellFormula(src.getCellFormula());
+            default -> {}
+        }
     }
 }

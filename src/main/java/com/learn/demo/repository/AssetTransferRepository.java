@@ -21,11 +21,19 @@ public interface AssetTransferRepository extends JpaRepository<AssetTransfer, Lo
     boolean existsByAsset_AssetIdAndStatus(Long assetId, String status);
 
     @org.springframework.data.jpa.repository.Query("SELECT t FROM AssetTransfer t WHERE " +
+            "(:search IS NULL OR :search = '' OR LOWER(t.asset.assetName) LIKE LOWER(CONCAT('%', :search, '%')) " +
+            "OR LOWER(t.asset.assetCode) LIKE LOWER(CONCAT('%', :search, '%')) " +
+            "OR LOWER(t.requestedBy) LIKE LOWER(CONCAT('%', :search, '%'))) AND " +
             "(:status IS NULL OR t.status = :status) AND " +
+            "(:priority IS NULL OR t.priority = :priority) AND " +
+            "(:requestedBy IS NULL OR t.requestedBy = :requestedBy) AND " +
             "(cast(:startDate as timestamp) IS NULL OR t.requestedAt >= :startDate) AND " +
             "(cast(:endDate as timestamp) IS NULL OR t.requestedAt <= :endDate)")
     Page<AssetTransfer> findByFilters(
+            @org.springframework.data.repository.query.Param("search") String search,
             @org.springframework.data.repository.query.Param("status") String status,
+            @org.springframework.data.repository.query.Param("priority") String priority,
+            @org.springframework.data.repository.query.Param("requestedBy") String requestedBy,
             @org.springframework.data.repository.query.Param("startDate") java.time.LocalDateTime startDate,
             @org.springframework.data.repository.query.Param("endDate") java.time.LocalDateTime endDate,
             Pageable pageable);

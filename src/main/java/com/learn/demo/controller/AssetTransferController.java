@@ -66,6 +66,16 @@ public class AssetTransferController {
         );
     }
 
+    // ── CANCEL (Original Requester or Admin) ──────────────────────────────────
+    @PutMapping("/{id}/cancel")
+    public ResponseEntity<Apiresponse> cancel(
+            @PathVariable Long id,
+            @Valid @RequestBody AssetTransferActionDTO dto) {
+        return ResponseEntity.ok(
+            new Apiresponse(HttpStatus.OK.value(), "Transfer request cancelled", service.cancelTransfer(id, dto))
+        );
+    }
+
     // ── RECEIVE / CONFIRM RECEIPT (Manager + Admin) ───────────────────────────
     @PutMapping("/{id}/receive")
     public ResponseEntity<Apiresponse> receive(
@@ -116,14 +126,17 @@ public class AssetTransferController {
     public ResponseEntity<Apiresponse> getAllTransfers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String priority,
+            @RequestParam(required = false) String requestedBy,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate startDate,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate endDate) {
 
         PageRequest pageable = PageRequest.of(page, size, Sort.by("requestedAt").descending());
         return ResponseEntity.ok(
             new Apiresponse(HttpStatus.OK.value(), "Transfers retrieved",
-                service.getAllTransfers(status, startDate, endDate, pageable))
+                service.getAllTransfers(search, status, priority, requestedBy, startDate, endDate, pageable))
         );
     }
 

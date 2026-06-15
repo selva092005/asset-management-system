@@ -24,13 +24,15 @@ public interface AssetTransferService {
 
     AssetTransferResponseDTO receiveTransfer(Long transferId, AssetTransferActionDTO dto);
 
+    AssetTransferResponseDTO cancelTransfer(Long transferId, AssetTransferActionDTO dto);
+
     List<AssetTransferResponseDTO> approveBulkTransfers(BulkTransferActionDTO dto);
 
     List<AssetTransferResponseDTO> rejectBulkTransfers(BulkTransferActionDTO dto);
 
     List<AssetTransferResponseDTO> receiveBulkTransfers(BulkTransferActionDTO dto);
 
-    Page<AssetTransferResponseDTO> getAllTransfers(String status, java.time.LocalDate startDate, java.time.LocalDate endDate, Pageable pageable);
+    Page<AssetTransferResponseDTO> getAllTransfers(String search, String status, String priority, String requestedBy, java.time.LocalDate startDate, java.time.LocalDate endDate, Pageable pageable);
 
     AssetTransferResponseDTO getById(Long transferId);
 

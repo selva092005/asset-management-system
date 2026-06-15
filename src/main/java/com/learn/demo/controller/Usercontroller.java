@@ -29,16 +29,15 @@ public class Usercontroller {
     @PostMapping
     public ResponseEntity<Apiresponse> saveUser(@Valid @RequestBody UserRequestDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(
-            new Apiresponse(HttpStatus.CREATED.value(), "User created successfully", service.saveUser(dto))
-        );
+                new Apiresponse(HttpStatus.CREATED.value(), "User created successfully", service.saveUser(dto)));
     }
 
     // CREATE BULK (JSON)
     @PostMapping("/bulk")
     public ResponseEntity<Apiresponse> saveUsers(@Valid @RequestBody List<UserRequestDTO> dtos) {
         return ResponseEntity.status(HttpStatus.CREATED).body(
-            new Apiresponse(HttpStatus.CREATED.value(), "Bulk users created successfully", service.saveUsers(dtos))
-        );
+                new Apiresponse(HttpStatus.CREATED.value(), "Bulk users created successfully",
+                        service.saveUsers(dtos)));
     }
 
     // BULK UPLOAD FROM EXCEL
@@ -49,9 +48,31 @@ public class Usercontroller {
 
         String filename = file.getOriginalFilename();
         if (filename == null || (!filename.endsWith(".xlsx") && !filename.endsWith(".xls")))
-            return ResponseEntity.badRequest().body(new Apiresponse(400, "Only .xlsx and .xls files are supported", null));
+            return ResponseEntity.badRequest()
+                    .body(new Apiresponse(400, "Only .xlsx and .xls files are supported", null));
 
-        return ResponseEntity.ok(new Apiresponse(HttpStatus.OK.value(), "Bulk upload processed", service.bulkUploadFromExcel(file)));
+        return ResponseEntity
+                .ok(new Apiresponse(HttpStatus.OK.value(), "Bulk upload processed", service.bulkUploadFromExcel(file)));
+    }
+
+    // DOWNLOAD FAILED ROWS EXCEL
+    @PostMapping(value = "/bulk-excel/failed-rows", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<byte[]> downloadFailedRowsExcel(@RequestParam("file") MultipartFile file) {
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            ByteArrayOutputStream out = service.generateFailedRowsExcel(file);
+            byte[] bytes = out.toByteArray();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(
+                    MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+            headers.setContentDisposition(ContentDisposition.attachment().filename("failed_users_rows.xlsx").build());
+            headers.setContentLength(bytes.length);
+            return ResponseEntity.ok().headers(headers).body(bytes);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     // EXPORT ALL USERS TO EXCEL
@@ -61,7 +82,8 @@ public class Usercontroller {
             ByteArrayOutputStream out = service.exportToExcel();
             byte[] bytes = out.toByteArray();
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+            headers.setContentType(
+                    MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
             headers.setContentDisposition(ContentDisposition.attachment().filename("users_export.xlsx").build());
             headers.setContentLength(bytes.length);
             return ResponseEntity.ok().headers(headers).body(bytes);
@@ -77,8 +99,10 @@ public class Usercontroller {
             ByteArrayOutputStream out = service.generateTemplate();
             byte[] bytes = out.toByteArray();
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-            headers.setContentDisposition(ContentDisposition.attachment().filename("user_upload_template.xlsx").build());
+            headers.setContentType(
+                    MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+            headers.setContentDisposition(
+                    ContentDisposition.attachment().filename("user_upload_template.xlsx").build());
             headers.setContentLength(bytes.length);
             return ResponseEntity.ok().headers(headers).body(bytes);
         } catch (Exception e) {
@@ -90,16 +114,14 @@ public class Usercontroller {
     @GetMapping
     public ResponseEntity<Apiresponse> getAllUsers() {
         return ResponseEntity.ok(
-            new Apiresponse(HttpStatus.OK.value(), "Users retrieved successfully", service.getAllUsers())
-        );
+                new Apiresponse(HttpStatus.OK.value(), "Users retrieved successfully", service.getAllUsers()));
     }
 
     // READ BY ID
     @GetMapping("/{userId}")
     public ResponseEntity<Apiresponse> getUserById(@PathVariable Long userId) {
         return ResponseEntity.ok(
-            new Apiresponse(HttpStatus.OK.value(), "User retrieved successfully", service.getUserById(userId))
-        );
+                new Apiresponse(HttpStatus.OK.value(), "User retrieved successfully", service.getUserById(userId)));
     }
 
     // UPDATE
@@ -108,8 +130,7 @@ public class Usercontroller {
             @PathVariable Long userId,
             @Valid @RequestBody UserRequestDTO dto) {
         return ResponseEntity.ok(
-            new Apiresponse(HttpStatus.OK.value(), "User updated successfully", service.updateUser(userId, dto))
-        );
+                new Apiresponse(HttpStatus.OK.value(), "User updated successfully", service.updateUser(userId, dto)));
     }
 
     // DELETE
@@ -123,8 +144,7 @@ public class Usercontroller {
     @GetMapping("/summary-stats")
     public ResponseEntity<Apiresponse> getUserSummaryStats() {
         return ResponseEntity.ok(
-            new Apiresponse(HttpStatus.OK.value(), "User summary stats", service.getUserSummaryStats())
-        );
+                new Apiresponse(HttpStatus.OK.value(), "User summary stats", service.getUserSummaryStats()));
     }
 
     // SEARCH + PAGINATION
@@ -135,8 +155,7 @@ public class Usercontroller {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         return ResponseEntity.ok(
-            new Apiresponse(HttpStatus.OK.value(), "Users fetched with pagination",
-                service.searchUsers(username, role, page, size))
-        );
+                new Apiresponse(HttpStatus.OK.value(), "Users fetched with pagination",
+                        service.searchUsers(username, role, page, size)));
     }
 }

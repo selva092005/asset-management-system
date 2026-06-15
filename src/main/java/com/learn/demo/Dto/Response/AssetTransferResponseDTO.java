@@ -23,6 +23,7 @@ public class AssetTransferResponseDTO {
     private String resolvedBy;
     private String status;          // "PENDING" | "APPROVED" | "REJECTED"
     private String remarks;
+    private java.time.LocalDate receivedDate;
 
     private LocalDateTime requestedAt;
     private LocalDateTime resolvedAt;

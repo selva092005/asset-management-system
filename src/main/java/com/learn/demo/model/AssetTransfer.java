@@ -64,5 +64,8 @@ public class AssetTransfer extends BaseEntity {
 
     private LocalDateTime resolvedAt;  // null until admin acts
 
+    @Column(name = "received_date")
+    private java.time.LocalDate receivedDate;
+
     private String remarks;            // admin note on approve/reject
 }

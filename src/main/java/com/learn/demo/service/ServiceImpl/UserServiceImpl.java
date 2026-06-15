@@ -479,4 +479,100 @@ public class UserServiceImpl implements UserService {
             default      -> null;
         };
     }
+
+    @Override
+    public ByteArrayOutputStream generateFailedRowsExcel(MultipartFile file) {
+        try (XSSFWorkbook sourceWorkbook = new XSSFWorkbook(file.getInputStream());
+             XSSFWorkbook targetWorkbook = new XSSFWorkbook()) {
+            
+            Sheet sourceSheet = sourceWorkbook.getSheetAt(0);
+            Sheet targetSheet = targetWorkbook.createSheet("Failed Rows");
+
+            // Copy styles & headers for the first 4 rows
+            for (int r = 0; r < Math.min(4, sourceSheet.getPhysicalNumberOfRows()); r++) {
+                Row srcRow = sourceSheet.getRow(r);
+                Row tgtRow = targetSheet.createRow(r);
+                if (srcRow == null) continue;
+                
+                for (int c = 0; c < srcRow.getLastCellNum(); c++) {
+                    Cell srcCell = srcRow.getCell(c);
+                    Cell tgtCell = tgtRow.createCell(c);
+                    if (srcCell != null) {
+                        copyCellValue(srcCell, tgtCell);
+                    }
+                }
+                if (r == 0) {
+                    tgtRow.createCell(srcRow.getLastCellNum()).setCellValue("Failure Reason");
+                }
+            }
+
+            int targetRowIdx = 4;
+
+            for (int i = 4; i <= sourceSheet.getLastRowNum(); i++) {
+                Row row = sourceSheet.getRow(i);
+                if (row == null) continue;
+
+                int rowNum = i + 1;
+                List<String> rowErrors = new ArrayList<>();
+
+                String userName     = getCellString(row, 0);
+                String userEmail    = getCellString(row, 1);
+                String userPassword = getCellString(row, 2);
+                String userRole     = getCellString(row, 3);
+
+                if (userName == null || userName.isBlank()) {
+                    rowErrors.add("[userName] User Name is required");
+                }
+                if (userEmail == null || userEmail.isBlank()) {
+                    rowErrors.add("[userEmail] User Email is required");
+                } else if (!userEmail.matches("^[\\w.+\\-]+@[\\w\\-]+\\.[a-zA-Z]{2,}$")) {
+                    rowErrors.add("[userEmail] Invalid email format: \"" + userEmail + "\"");
+                }
+                if (userPassword == null || userPassword.isBlank()) {
+                    rowErrors.add("[userPassword] Password is required");
+                }
+                if (userRole == null || userRole.isBlank()) {
+                    rowErrors.add("[userRole] Role is required (ADMIN / MANAGER / USER)");
+                }
+
+                if (userEmail != null && !userEmail.isBlank() && repository.existsByUserEmail(userEmail)) {
+                    rowErrors.add("[userEmail] Email \"" + userEmail + "\" already exists in the database");
+                }
+
+                if (!rowErrors.isEmpty()) {
+                    Row tgtRow = targetSheet.createRow(targetRowIdx++);
+                    for (int c = 0; c < row.getLastCellNum(); c++) {
+                        Cell srcCell = row.getCell(c);
+                        Cell tgtCell = tgtRow.createCell(c);
+                        if (srcCell != null) {
+                            copyCellValue(srcCell, tgtCell);
+                        }
+                    }
+                    tgtRow.createCell(row.getLastCellNum()).setCellValue(String.join(" | ", rowErrors));
+                }
+            }
+
+            for (int i = 0; i <= 8; i++) {
+                try {
+                    targetSheet.autoSizeColumn(i);
+                } catch (Exception ignored) {}
+            }
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            targetWorkbook.write(out);
+            return out;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to generate failed rows excel: " + e.getMessage(), e);
+        }
+    }
+
+    private void copyCellValue(Cell src, Cell tgt) {
+        switch (src.getCellType()) {
+            case STRING -> tgt.setCellValue(src.getStringCellValue());
+            case NUMERIC -> tgt.setCellValue(src.getNumericCellValue());
+            case BOOLEAN -> tgt.setCellValue(src.getBooleanCellValue());
+            case FORMULA -> tgt.setCellFormula(src.getCellFormula());
+            default -> {}
+        }
+    }
 }

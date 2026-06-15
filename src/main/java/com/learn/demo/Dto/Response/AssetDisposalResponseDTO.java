@@ -19,4 +19,9 @@ public class AssetDisposalResponseDTO {
     private String disposedBy;
     private Double disposalValue;
     private String assetImagePath;
+    
+    // Purchase details at time of disposal
+    private Double purchaseCost;
+    private LocalDate purchaseDate;
 }
+

@@ -38,4 +38,6 @@ public interface AssetService {
     DashboardSummaryDTO getDashboardSummary();
 
     List<BulkUploadHistoryResponseDTO> getUploadHistory();
+
+    ByteArrayOutputStream generateFailedRowsExcel(MultipartFile file);
 }

@@ -10,4 +10,6 @@ public class AssetTransferActionDTO {
     private String resolvedBy;
 
     private String remarks;
+
+    private java.time.LocalDate receivedDate;
 }
