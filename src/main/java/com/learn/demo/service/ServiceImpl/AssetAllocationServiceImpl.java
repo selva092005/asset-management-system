@@ -22,6 +22,7 @@ import com.learn.demo.repository.AssetAllocationRepository;
 import com.learn.demo.repository.AssetRepository;
 import com.learn.demo.service.AssetAllocationService;
 import com.learn.demo.service.NotificationService;
+import com.learn.demo.service.AssetActivityLogService;
 import com.learn.demo.repository.UserRepository;
 import com.learn.demo.model.User;
 import java.util.Optional;
@@ -39,6 +40,7 @@ public class AssetAllocationServiceImpl implements AssetAllocationService {
     private final AssetRepository assetRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final AssetActivityLogService activityLogService;
 
     // ── ALLOCATE ──────────────────────────────────────────────────────────────
     @Override
@@ -53,7 +55,18 @@ public class AssetAllocationServiceImpl implements AssetAllocationService {
         }
 
         if (allocationRepository.existsByAsset_AssetIdAndStatus(dto.getAssetId(), "ACTIVE")) {
-            throw new BusinessRuleException("Asset is already allocated. Return it first.");
+            if ("AVAILABLE".equalsIgnoreCase(asset.getStatus())) {
+                List<AssetAllocation> activeAllocations = allocationRepository.findByAsset_AssetIdOrderByAssignedDateDesc(dto.getAssetId());
+                for (AssetAllocation activeAlloc : activeAllocations) {
+                    if ("ACTIVE".equalsIgnoreCase(activeAlloc.getStatus())) {
+                        activeAlloc.setStatus("RETURNED");
+                        activeAlloc.setReturnDate(LocalDate.now());
+                        allocationRepository.save(activeAlloc);
+                    }
+                }
+            } else {
+                throw new BusinessRuleException("Asset is already allocated. Return it first.");
+            }
         }
 
         asset.setStatus("ASSIGNED");
@@ -71,6 +84,16 @@ public class AssetAllocationServiceImpl implements AssetAllocationService {
         AssetAllocationResponseDTO response = toDTO(allocationRepository.save(allocation));
 
         try {
+            activityLogService.log(asset, "ALLOCATED", dto.getAssignedBy(), 
+                String.format("Asset allocated to %s. Expected return date: %s. Remarks: %s", 
+                    dto.getAssignedTo(), 
+                    dto.getExpectedReturnDate() != null ? dto.getExpectedReturnDate().toString() : "N/A",
+                    dto.getRemarks() != null ? dto.getRemarks() : "None"));
+        } catch (Exception ex) {
+            // Ignore log error
+        }
+
+        try {
             String recipientEmail = null;
             Optional<User> targetUser = userRepository.findByUserNameAndDeletedFalse(dto.getAssignedTo());
             if (targetUser.isPresent()) {
@@ -84,14 +107,16 @@ public class AssetAllocationServiceImpl implements AssetAllocationService {
             if (recipientEmail != null) {
                 notificationService.sendNotification(
                     String.format("Asset '%s' (%s) has been allocated to you by %s.", asset.getAssetName(), asset.getAssetCode(), dto.getAssignedBy()),
-                    recipientEmail
+                    recipientEmail,
+                    false
                 );
                 notificationService.sendAllocationEmail(
                     recipientEmail,
                     dto.getAssignedTo(),
                     asset.getAssetName(),
                     asset.getAssetCode(),
-                    "ALLOCATED"
+                    "ALLOCATED",
+                    dto.getAssignedBy()
                 );
             }
         } catch (Exception ex) {
@@ -104,7 +129,7 @@ public class AssetAllocationServiceImpl implements AssetAllocationService {
     // ── RETURN ────────────────────────────────────────────────────────────────
     @Override
     @Transactional
-    public AssetAllocationResponseDTO returnAsset(Long allocationId, LocalDate returnDate) {
+    public AssetAllocationResponseDTO returnAsset(Long allocationId, LocalDate returnDate, String returnedCondition) {
 
         AssetAllocation allocation = allocationRepository.findById(allocationId)
             .orElseThrow(() -> new ResourceNotFoundException("Allocation not found with id: " + allocationId));
@@ -124,11 +149,30 @@ public class AssetAllocationServiceImpl implements AssetAllocationService {
 
         Asset asset = allocation.getAsset();
         if (!asset.isDeleted()) {
-            asset.setStatus("AVAILABLE");
+            if (returnedCondition != null && !returnedCondition.isBlank()) {
+                String condUpper = returnedCondition.toUpperCase();
+                asset.setAssetCondition(condUpper);
+                if ("DAMAGED".equals(condUpper) || "POOR".equals(condUpper)) {
+                    asset.setStatus("DAMAGED");
+                } else {
+                    asset.setStatus("AVAILABLE");
+                }
+            } else {
+                asset.setStatus("AVAILABLE");
+            }
             assetRepository.save(asset);
         }
 
         AssetAllocationResponseDTO response = toDTO(allocationRepository.save(allocation));
+
+        try {
+            activityLogService.log(asset, "RETURNED", allocation.getAssignedTo(), 
+                String.format("Asset returned. Condition on return: %s. Remarks: %s", 
+                    returnedCondition != null ? returnedCondition.toUpperCase() : "N/A", 
+                    allocation.getRemarks() != null ? allocation.getRemarks() : "None"));
+        } catch (Exception ex) {
+            // Ignore log error
+        }
 
         try {
             notificationService.notifyAdmins(
@@ -146,12 +190,18 @@ public class AssetAllocationServiceImpl implements AssetAllocationService {
                 }
             }
             if (recipientEmail != null) {
+                notificationService.sendNotification(
+                    String.format("Asset '%s' (%s) has been returned successfully.", asset.getAssetName(), asset.getAssetCode()),
+                    recipientEmail,
+                    false
+                );
                 notificationService.sendAllocationEmail(
                     recipientEmail,
                     allocation.getAssignedTo(),
                     asset.getAssetName(),
                     asset.getAssetCode(),
-                    "RETURNED"
+                    "RETURNED",
+                    allocation.getAssignedBy()
                 );
             }
         } catch (Exception ex) {
@@ -164,7 +214,7 @@ public class AssetAllocationServiceImpl implements AssetAllocationService {
     // ── GET ALL – no filters (existing, unchanged) ────────────────────────────
     @Override
     public Page<AssetAllocationResponseDTO> getAllAllocations(Pageable pageable) {
-        return allocationRepository.findAllByOrderByAssignedDateDesc(pageable)
+        return allocationRepository.findAll(pageable)
             .map(this::toDTO);
     }
 

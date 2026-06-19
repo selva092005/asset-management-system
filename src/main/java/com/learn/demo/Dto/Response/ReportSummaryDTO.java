@@ -18,6 +18,7 @@ public class ReportSummaryDTO {
     private long disposed;
     private long damaged;
     private long underMaintenance;
+    private long lost;
     private Map<String, Long> byType;
     private Map<String, Long> byLocation;
     private Map<String, Long> byCompany;

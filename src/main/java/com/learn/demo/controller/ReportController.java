@@ -72,5 +72,19 @@ public class ReportController {
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    // ── EXPORT AUDITS TO EXCEL ────────────────────────────────────────────────
+    @GetMapping("/audits/export")
+    public ResponseEntity<byte[]> exportAudits() {
+        try {
+            ByteArrayOutputStream out = reportService.exportAuditsToExcel();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDisposition(ContentDisposition.attachment().filename("audits_report.xlsx").build());
+            return new ResponseEntity<>(out.toByteArray(), headers, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }
 

@@ -75,11 +75,26 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
     long countExpiringWarranty(@Param("today") LocalDate today, @Param("cutoff") LocalDate cutoff);
 
     @Query("""
+        SELECT a FROM Asset a
+        WHERE a.deleted = false
+        AND a.warrantyExpiry = :targetDate
+    """)
+    List<Asset> findExpiringWarrantyOnDate(@Param("targetDate") LocalDate targetDate);
+
+    @Query("""
         SELECT a.assetType.typeName, COUNT(a) FROM Asset a
         WHERE a.deleted = false
         GROUP BY a.assetType.typeName
     """)
     List<Object[]> countGroupByType();
+
+    @Query("""
+        SELECT a.assetType.typeName, COUNT(a) FROM Asset a
+        WHERE a.deleted = false
+        AND a.status = 'AVAILABLE'
+        GROUP BY a.assetType.typeName
+    """)
+    List<Object[]> countAvailableGroupByType();
 
     @Query("""
         SELECT a.location.locationName, COUNT(a) FROM Asset a
@@ -94,4 +109,16 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
         GROUP BY a.location.company.companyName
     """)
     List<Object[]> countGroupByCompany();
+
+    @Query("""
+        SELECT a FROM Asset a
+        WHERE a.deleted = false
+        AND a.status NOT IN ('DISPOSED', 'LOST')
+        AND (
+            ((SELECT MAX(m.endDate) FROM AssetMaintenance m WHERE m.asset = a) IS NULL AND a.purchaseDate <= :cutoffDate)
+            OR
+            ((SELECT MAX(m.endDate) FROM AssetMaintenance m WHERE m.asset = a) <= :cutoffDate)
+        )
+    """)
+    List<Asset> findAssetsOverdueForMaintenance(@Param("cutoffDate") LocalDate cutoffDate);
 }

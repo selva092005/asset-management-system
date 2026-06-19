@@ -14,6 +14,7 @@ public class DashboardSummaryDTO {
     private long assigned;
     private long damaged;
     private long underMaintenance;
+    private long lost;
     private long expiringWarrantyIn30Days;
     private Map<String, Long> countByType;
     private Map<String, Long> countByLocation;

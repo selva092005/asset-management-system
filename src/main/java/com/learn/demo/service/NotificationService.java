@@ -19,10 +19,13 @@ public interface NotificationService {
     void clearAllNotifications();
 
     void sendNotification(String message, String userEmail);
+    void sendNotification(String message, String userEmail, boolean sendEmail);
 
     void notifyAdmins(String message);
 
     void notifyAdminsWithTransfer(AssetTransfer transfer);
 
-    void sendAllocationEmail(String employeeEmail, String employeeName, String assetName, String assetCode, String actionType);
+    void sendAllocationEmail(String employeeEmail, String employeeName, String assetName, String assetCode, String actionType, String assignedBy);
+
+    void sendOverdueNotification(String userEmail, String employeeName, String assetName, String assetCode, String expectedReturnDate, long daysOverdue);
 }

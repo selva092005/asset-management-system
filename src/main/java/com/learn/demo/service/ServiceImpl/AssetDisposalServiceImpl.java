@@ -21,6 +21,7 @@ import com.learn.demo.model.Asset;
 import com.learn.demo.model.AssetDisposal;
 import com.learn.demo.repository.AssetDisposalRepository;
 import com.learn.demo.repository.AssetRepository;
+import com.learn.demo.repository.AssetRequestRepository;
 import com.learn.demo.service.NotificationService;
 import com.learn.demo.service.AssetDisposalService;
 
@@ -33,6 +34,7 @@ public class AssetDisposalServiceImpl implements AssetDisposalService {
     private final AssetDisposalRepository disposalRepository;
     private final AssetRepository assetRepository;
     private final NotificationService notificationService;
+    private final AssetRequestRepository requestRepository;
 
     @Override
     @Transactional
@@ -47,6 +49,11 @@ public class AssetDisposalServiceImpl implements AssetDisposalService {
             throw new BusinessRuleException(
                 "Only AVAILABLE or DAMAGED assets can be disposed. Current status: " + asset.getStatus()
             );
+        }
+
+        boolean hasActiveRequests = requestRepository.existsByAsset_AssetIdAndStatusIn(asset.getAssetId(), List.of("PENDING", "IN_PROGRESS"));
+        if (hasActiveRequests) {
+            throw new BusinessRuleException("Cannot dispose asset because it has pending or in-progress service requests.");
         }
 
         // Mark asset as DISPOSED

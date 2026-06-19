@@ -512,7 +512,6 @@ public class UserServiceImpl implements UserService {
                 Row row = sourceSheet.getRow(i);
                 if (row == null) continue;
 
-                int rowNum = i + 1;
                 List<String> rowErrors = new ArrayList<>();
 
                 String userName     = getCellString(row, 0);

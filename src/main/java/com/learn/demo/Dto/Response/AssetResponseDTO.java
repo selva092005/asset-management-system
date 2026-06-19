@@ -15,6 +15,8 @@ public class AssetResponseDTO {
     private LocalDate purchaseDate;
     private LocalDate warrantyExpiry;
     private Double cost;
+    private Double depreciationRate;
+    private Double currentValue;
     private String status;
     private String assetCondition;
     private String notes;

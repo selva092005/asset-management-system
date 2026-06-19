@@ -49,4 +49,34 @@ public class EmailServiceImpl implements EmailService {
             log.error("Failed to send HTML email to {}", to, e);
         }
     }
+
+    @Override
+    @Async
+    public void sendHtmlEmailWithAttachment(String to, String subject, String htmlContent, String attachmentPath) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom("ams@company.com");
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true);
+
+            if (attachmentPath != null) {
+                java.io.File file = new java.io.File(attachmentPath);
+                if (file.exists()) {
+                    org.springframework.core.io.FileSystemResource res = new org.springframework.core.io.FileSystemResource(file);
+                    helper.addAttachment(file.getName(), res);
+                } else {
+                    log.warn("Attachment file not found at path: {}", attachmentPath);
+                }
+            }
+
+            mailSender.send(message);
+            log.info("HTML Email with attachment sent successfully to {}", to);
+
+            // PDF receipts are kept in the uploads folder to allow downloading via the link in the email
+        } catch (Exception e) {
+            log.error("Failed to send HTML email with attachment to {}", to, e);
+        }
+    }
 }

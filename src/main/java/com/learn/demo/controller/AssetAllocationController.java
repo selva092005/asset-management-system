@@ -42,9 +42,10 @@ public class AssetAllocationController {
     @PutMapping("/{allocationId}/return")
     public ResponseEntity<Apiresponse> returnAsset(
             @PathVariable Long allocationId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate returnDate) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate returnDate,
+            @RequestParam(required = false) String returnedCondition) {
         return ResponseEntity.ok(
-            new Apiresponse(HttpStatus.OK.value(), "Asset returned successfully", service.returnAsset(allocationId, returnDate))
+            new Apiresponse(HttpStatus.OK.value(), "Asset returned successfully", service.returnAsset(allocationId, returnDate, returnedCondition))
         );
     }
 
@@ -67,7 +68,7 @@ public class AssetAllocationController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
 
-        PageRequest pageable = PageRequest.of(page, size, Sort.by("assignedDate").descending());
+        PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Order.asc("status"), Sort.Order.desc("assignedDate")));
         boolean hasFilters = (search != null) || (status != null) || (fromDate != null) || (toDate != null);
 
         Object result = hasFilters

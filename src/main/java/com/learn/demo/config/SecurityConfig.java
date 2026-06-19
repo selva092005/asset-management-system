@@ -44,6 +44,7 @@ public class SecurityConfig {
 
                         // Images served via <img src="..."> — browser never sends Auth header
                         .requestMatchers(HttpMethod.GET, "/api/files/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/ams_no_bg.png", "/ams_img.jpg").permitAll()
 
                         // ── Companies ─────────────────────────────────────────────────
                         .requestMatchers(HttpMethod.GET, "/api/companies/**").hasAnyRole("ADMIN", "MANAGER")

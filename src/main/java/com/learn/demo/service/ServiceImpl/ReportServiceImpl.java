@@ -40,6 +40,7 @@ public class ReportServiceImpl implements ReportService {
     private final AssetAllocationRepository allocationRepository;
     private final AssetDisposalRepository disposalRepository;
     private final AssetTransferRepository transferRepository;
+    private final com.learn.demo.repository.AssetAuditRepository auditRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -53,7 +54,8 @@ public class ReportServiceImpl implements ReportService {
         long disposed         = safeCount(() -> assetRepository.countByDeletedFalseAndStatus("DISPOSED"));
         long damaged          = safeCount(() -> assetRepository.countByDeletedFalseAndStatus("DAMAGED"));
         long underMaintenance = safeCount(() -> assetRepository.countByDeletedFalseAndStatus("UNDER_MAINTENANCE"));
-        long totalAssets      = available + assigned + disposed + damaged + underMaintenance;
+        long lost             = safeCount(() -> assetRepository.countByDeletedFalseAndStatus("LOST"));
+        long totalAssets      = available + assigned + disposed + damaged + underMaintenance + lost;
 
         // ── Asset by type / location / company ────────────────────────────────
         Map<String, Long> byType     = safeMap(() -> assetRepository.countGroupByType());
@@ -77,7 +79,7 @@ public class ReportServiceImpl implements ReportService {
         Map<String, Long> byMethod = safeMap(() -> disposalRepository.countGroupByMethod());
 
         return new ReportSummaryDTO(
-            totalAssets, available, assigned, disposed, damaged, underMaintenance,
+            totalAssets, available, assigned, disposed, damaged, underMaintenance, lost,
             byType, byLocation, byCompany,
             totalAllocations, activeAllocations, returnedAllocations, overdueAllocations,
             totalTransfers, pendingTransfers, approvedTransfers, rejectedTransfers,
@@ -227,6 +229,86 @@ public class ReportServiceImpl implements ReportService {
             return out;
         } catch (IOException e) {
             throw new RuntimeException("Failed to generate Disposals Excel export: " + e.getMessage(), e);
+        }
+    }
+
+    // ── Excel Export: Audits ──────────────────────────────────────────────────
+    @Override
+    @Transactional(readOnly = true)
+    public ByteArrayOutputStream exportAuditsToExcel() {
+        List<com.learn.demo.model.AssetAudit> list = auditRepository.findAll();
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Audits");
+            CellStyle headerStyle = createHeaderStyle(workbook);
+
+            String[] headers = {
+                "Audit ID", "Asset Code", "Asset Name", "Audited By", 
+                "Audit Date", "Status", "Checks", "Remarks"
+            };
+
+            Row headerRow = sheet.createRow(0);
+            headerRow.setHeightInPoints(20);
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            for (int i = 0; i < list.size(); i++) {
+                com.learn.demo.model.AssetAudit audit = list.get(i);
+                Row row = sheet.createRow(i + 1);
+                row.createCell(0).setCellValue(audit.getAuditId() != null ? audit.getAuditId() : 0);
+                row.createCell(1).setCellValue(audit.getAsset() != null ? nullSafe(audit.getAsset().getAssetCode()) : "");
+                row.createCell(2).setCellValue(audit.getAsset() != null ? nullSafe(audit.getAsset().getAssetName()) : "");
+                row.createCell(3).setCellValue(nullSafe(audit.getAuditedBy()));
+                row.createCell(4).setCellValue(audit.getAuditDate() != null ? audit.getAuditDate().toString() : "");
+                row.createCell(5).setCellValue(nullSafe(audit.getStatus()));
+                
+                String typeName = audit.getAsset() != null && audit.getAsset().getAssetType() != null 
+                    ? audit.getAsset().getAssetType().getTypeName() : "";
+                
+                String type = (typeName != null ? typeName : "").toUpperCase();
+                String screenLabel = "Screen";
+                String keyboardLabel = "Keyboard";
+                String chargerLabel = "Charger";
+                String batteryLabel = "Battery";
+
+                if (type.contains("FURNITURE") || type.contains("CHAIR") || type.contains("TABLE") || type.contains("DESK")) {
+                    screenLabel = "Structure";
+                    keyboardLabel = "Stability";
+                    chargerLabel = "Surface";
+                    batteryLabel = "Cleanliness";
+                } else if (type.contains("MOBILE") || type.contains("PHONE") || type.contains("TABLET")) {
+                    screenLabel = "Screen";
+                    keyboardLabel = "Touchscreen/Buttons";
+                    chargerLabel = "Charger";
+                    batteryLabel = "Battery";
+                } else if (!type.equals("IT") && !type.contains("LAPTOP") && !type.contains("COMPUTER") && !type.isEmpty()) {
+                    screenLabel = "Power/Wiring";
+                    keyboardLabel = "Outer Casing";
+                    chargerLabel = "Controls";
+                    batteryLabel = "Functions";
+                }
+
+                String checks = String.format("%s: %s, %s: %s, %s: %s, %s: %s",
+                    screenLabel, audit.getScreenOk() ? "OK" : "Issue",
+                    keyboardLabel, audit.getKeyboardOk() ? "OK" : "Issue",
+                    chargerLabel, audit.getChargerOk() ? "OK" : "Issue",
+                    batteryLabel, audit.getBatteryOk() ? "OK" : "Issue"
+                );
+                
+                row.createCell(6).setCellValue(nullSafe(checks));
+                row.createCell(7).setCellValue(nullSafe(audit.getRemarks()));
+            }
+
+            for (int i = 0; i < headers.length; i++) sheet.autoSizeColumn(i);
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            return out;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to generate Audits Excel export: " + e.getMessage(), e);
         }
     }
 

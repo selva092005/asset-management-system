@@ -41,6 +41,7 @@ public class Asset extends BaseEntity {
     private LocalDate warrantyExpiry;
 
     private Double cost;
+    private Double depreciationRate = 20.0;
 
     private String status;
     private String assetCondition;

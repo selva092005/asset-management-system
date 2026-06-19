@@ -23,6 +23,7 @@ public class AssetMapper {
         asset.setPurchaseDate(dto.getPurchaseDate());
         asset.setWarrantyExpiry(dto.getWarrantyExpiry());
         asset.setCost(dto.getCost());
+        asset.setDepreciationRate(dto.getDepreciationRate() != null ? dto.getDepreciationRate() : 20.0);
         asset.setStatus(dto.getStatus());
         asset.setAssetCondition(dto.getAssetCondition());
         asset.setNotes(dto.getNotes());
@@ -44,6 +45,25 @@ public class AssetMapper {
         dto.setPurchaseDate(asset.getPurchaseDate());
         dto.setWarrantyExpiry(asset.getWarrantyExpiry());
         dto.setCost(asset.getCost());
+        dto.setDepreciationRate(asset.getDepreciationRate() != null ? asset.getDepreciationRate() : 20.0);
+        
+        double currentVal = 0.0;
+        if (asset.getCost() != null) {
+            double purchasePrice = asset.getCost();
+            double depRate = asset.getDepreciationRate() != null ? asset.getDepreciationRate() : 20.0;
+            double yearsElapsed = 0.0;
+            if (asset.getPurchaseDate() != null) {
+                java.time.Period period = java.time.Period.between(asset.getPurchaseDate(), java.time.LocalDate.now());
+                yearsElapsed = period.getYears() + (period.getMonths() / 12.0) + (period.getDays() / 365.25);
+            }
+            currentVal = purchasePrice - (yearsElapsed * (purchasePrice * (depRate / 100.0)));
+            double minSalvage = purchasePrice * 0.1;
+            if (currentVal < minSalvage) {
+                currentVal = minSalvage;
+            }
+        }
+        dto.setCurrentValue(currentVal);
+
         dto.setStatus(asset.getStatus());
         dto.setAssetCondition(asset.getAssetCondition());
         dto.setNotes(asset.getNotes());
@@ -82,6 +102,9 @@ public class AssetMapper {
         asset.setPurchaseDate(dto.getPurchaseDate());
         asset.setWarrantyExpiry(dto.getWarrantyExpiry());
         asset.setCost(dto.getCost());
+        if (dto.getDepreciationRate() != null) {
+            asset.setDepreciationRate(dto.getDepreciationRate());
+        }
         asset.setStatus(dto.getStatus());
         asset.setAssetCondition(dto.getAssetCondition());
         asset.setNotes(dto.getNotes());

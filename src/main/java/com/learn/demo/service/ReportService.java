@@ -8,5 +8,6 @@ public interface ReportService {
     ByteArrayOutputStream exportAllocationsToExcel();
     ByteArrayOutputStream exportTransfersToExcel();
     ByteArrayOutputStream exportDisposalsToExcel();
+    ByteArrayOutputStream exportAuditsToExcel();
 }
 

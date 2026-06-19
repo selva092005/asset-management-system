@@ -54,6 +54,7 @@ import com.learn.demo.repository.AssetTypeRepository;
 import com.learn.demo.repository.LocationRepository;
 import com.learn.demo.repository.BulkUploadHistoryRepository;
 import com.learn.demo.repository.AssetTransferRepository;
+import com.learn.demo.repository.AssetRequestRepository;
 import com.learn.demo.service.AssetService;
 import com.learn.demo.util.AssetCodeGenerator;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -71,6 +72,7 @@ public class AssetServiceImpl implements AssetService {
     private final LocationRepository locationRepository;
     private final AssetTransferRepository assetTransferRepository;
     private final AssetAllocationRepository allocationRepository;
+    private final AssetRequestRepository assetRequestRepository;
 
     @org.springframework.beans.factory.annotation.Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
@@ -729,6 +731,11 @@ public class AssetServiceImpl implements AssetService {
             throw new BusinessRuleException("Cannot delete asset because it has a pending transfer request.");
         }
 
+        boolean hasActiveRequests = assetRequestRepository.existsByAsset_AssetIdAndStatusIn(assetId, List.of("PENDING", "IN_PROGRESS"));
+        if (hasActiveRequests) {
+            throw new BusinessRuleException("Cannot delete asset because it has pending or in-progress service requests.");
+        }
+
         asset.setDeleted(true);
         asset.setDeletedBy(deletedBy);
         asset.setDeletedAt(LocalDateTime.now());
@@ -754,6 +761,7 @@ public class AssetServiceImpl implements AssetService {
         long assigned       = repository.countByDeletedFalseAndStatus("ASSIGNED");
         long damaged        = repository.countByDeletedFalseAndStatus("DAMAGED");
         long underMaintenance = repository.countByDeletedFalseAndStatus("UNDER_MAINTENANCE");
+        long lost           = repository.countByDeletedFalseAndStatus("LOST");
 
         LocalDate today  = LocalDate.now();
         LocalDate cutoff = today.plusDays(30);
@@ -766,7 +774,7 @@ public class AssetServiceImpl implements AssetService {
         Map<String, Long> byCompany = repository.countGroupByCompany().stream()
                 .collect(Collectors.toMap(r -> (String) r[0], r -> (Long) r[1]));
 
-        return new DashboardSummaryDTO(total, available, assigned, damaged, underMaintenance, expiring, byType, byLocation, byCompany);
+        return new DashboardSummaryDTO(total, available, assigned, damaged, underMaintenance, lost, expiring, byType, byLocation, byCompany);
     }
 
     // ─────────────────────────────────────────────
@@ -860,14 +868,10 @@ public class AssetServiceImpl implements AssetService {
                 // Extract fields
                 String assetName = getCellString(row, 0);
                 String serialNumber = getCellString(row, 1);
-                String brand = getCellString(row, 2);
-                String model = getCellString(row, 3);
                 String purchaseDateStr = getCellString(row, 4);
                 String warrantyStr = getCellString(row, 5);
                 String costStr = getCellString(row, 6);
                 String status = getCellString(row, 7);
-                String condition = getCellString(row, 8);
-                String notes = getCellString(row, 9);
                 String typeName = getCellString(row, 10);
                 String locationName = getCellString(row, 11);
                 String companyName = getCellString(row, 12);

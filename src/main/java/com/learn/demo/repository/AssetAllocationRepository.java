@@ -33,6 +33,9 @@ public interface AssetAllocationRepository
     @Query("SELECT COUNT(a) FROM AssetAllocation a WHERE a.status = 'ACTIVE' AND a.expectedReturnDate < :today")
     long countOverdue(@Param("today") LocalDate today);
 
+    @Query("SELECT a FROM AssetAllocation a JOIN FETCH a.asset WHERE a.status = 'ACTIVE' AND a.expectedReturnDate < :today")
+    List<AssetAllocation> findOverdueAllocations(@Param("today") LocalDate today);
+
     // awaiting return: ACTIVE allocations whose expectedReturnDate >= today OR no date set
     @Query("SELECT COUNT(a) FROM AssetAllocation a WHERE a.status = 'ACTIVE' AND (a.expectedReturnDate IS NULL OR a.expectedReturnDate >= :today)")
     long countAwaitingReturn(@Param("today") LocalDate today);

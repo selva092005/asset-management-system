@@ -27,6 +27,7 @@ public class AssetRequestDTO {
     @NotNull(message = "Cost is required")
     @Min(value = 0, message = "Cost must be zero or positive")
     private Double cost;
+    private Double depreciationRate;
 
     @NotBlank(message = "Status is required")
     @Pattern(regexp = "AVAILABLE|ASSIGNED|DAMAGED|UNDER_MAINTENANCE|IN_TRANSIT", message = "Status must be AVAILABLE, ASSIGNED, DAMAGED, UNDER_MAINTENANCE or IN_TRANSIT")

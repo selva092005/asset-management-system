@@ -1,0 +1,109 @@
+The Implementation Plan is fully updated and aligns with all requirements.
+
+Here is your Step-by-Step Testing Guide to verify all of the newly implemented features in your local environment.
+
+Prerequisites: Start the Applications
+Backend: Run your DemoApplication in your IDE (e.g., Eclipse or VS Code) or via Maven. Since I freed up port 8080, it will start without conflicts.
+Frontend: Your Vite development server is already running on http://localhost:5173. Open this URL in your web browser.
+Credentials: Log in using the Admin account:
+Email: admin@gmail.com
+Password: Admin@123
+Test Scenario 1: Asset Audit & Auto-Status Updates
+Navigate to Assets ➔ Audit from the top Navbar sub-menu.
+Select an asset from the dropdown (or search by name/code).
+Under the Component Checklist, select OK for Screen, Keyboard, Charger, but mark Battery as Damaged.
+Set the Overall Status to DAMAGED, add a remark (e.g., "Battery swollen"), and click Submit Audit.
+Verify: Navigate to Assets ➔ All Assets. Search for the asset you just audited. Confirm that its status has automatically changed to DAMAGED and its condition is updated in the database.
+
+-
+
+Test Scenario 2: Service Tickets & Maintenance Pipeline
+Navigate to Assets ➔ Service Requests (this page manages both employee requests and damage tickets).
+Click on Report Issue / Damage Ticket.
+Select your damaged asset, set the priority to HIGH, write a description (e.g., "Laptop shutting down"), and click Submit.
+On the Requests Dashboard, locate your submitted ticket and click Edit Status. Change the status to IN_PROGRESS.
+Verify: Search for the asset in the inventory; its status has now automatically shifted to UNDER_MAINTENANCE.
+Return to the Requests Dashboard, change the ticket status to RESOLVED, enter remarks (e.g., "Battery replaced"), and save.
+Verify Asset Restore: The asset's status is automatically restored to AVAILABLE with condition GOOD.
+Verify Repair Logs: Navigate to Assets ➔ Maintenance & Repair. Confirm a new maintenance record was automatically generated for this asset, logging the duration, vendor (Internal IT Support), and outcome (REPAIRED).
+
+-
+
+Test Scenario 3: Procurement Requests & Auto-Allocation
+In the Service Requests page, click Request New Asset.
+Select an asset category (e.g., Laptops), input details, and submit.
+On the Admin view of the Requests dashboard, locate the new request and click Approve / Allocate.
+Select an available asset from the dropdown list and submit.
+Verify: The request status shifts to APPROVED, and the selected asset is automatically allocated to the employee in the database (verify under Allocations list).
+Test Scenario 4: Field Operations (Webcam QR Scan)
+Navigate to Assets ➔ Scan Asset QR from the Navbar.
+Grant webcam permissions to the browser if prompted.
+Position an asset QR code in front of the lens (or simulate a scan using the lookup box).
+Verify: Once identified, it immediately opens the Instant Asset Workflows panel showing:
+Asset name, tag, and status.
+Shortcut buttons to Launch Physical Audit, Log Repair Details, or View Full History Timeline.
+Test Scenario 5: Unified History Timeline
+Navigate to Assets ➔ All Assets.
+Click on the asset you used in the scenarios above to view its details.
+Scroll to the History & Activity Log tab.
+Verify: You will see a vertical timeline displaying all life-cycle states of the asset (e.g., Asset Created ➔ Requested ➔ Audited as Damaged ➔ Maintenance Logged ➔ Restored).
+
+
+
+
+
+
+
+I will search the backend codebase to find references to Vendor, Purchase Orders, and Depreciation.
+
+Searched for "PurchaseOrder"
+
+I will search for "Vendor" in the backend codebase to check if there is an active Vendor entity or service.
+
+Searched for "Vendor"
+
+I will search for "depreciation" to see if there is any existing logic for asset depreciation.
+
+Searched for "depreciation"
+
+I will search the frontend codebase for references to depreciation or purchase order interfaces.
+
+Searched for "depreciation"
+
+I will view `ReportsPage.jsx` to see the existing reports export and depreciation features.
+
+Viewed ReportsPage.jsx:1-788
+
+I will view `AssetDisposal.jsx` to confirm the features implemented in the disposal page.
+
+Viewed AssetDisposal.jsx:1-200
+
+Here is a clear breakdown of whether these specific features are present in the project:
+
+### 1. Role-Based Access Control (RBAC) — **YES** (Fully Implemented)
+* **How it works**: System routing (`RoleRoute`) restricts page accesses. Buttons like *Add Asset*, *Approve Requests*, *Inspect/Audit*, and *Dispose Asset* are visible/accessible only to `ADMIN` or `MANAGER` accounts, whereas regular employees can only view their assigned assets or report problems.
+
+### 2. Asset Disposal — **YES** (Fully Implemented)
+* **How it works**: Located at **Assets** ➔ **Disposal** in the menu. Admins can decommission assets under specific methods (`SOLD`, `SCRAPPED`, `DONATED`, `DAMAGED`), log salvage values/gains, record reasons, and trace retired assets in the disposal history ledger.
+
+### 3. Vendor Management — **PARTIALLY** (Basic Field Only)
+* **How it works**: We track the vendor responsible for repairs inside the **Asset Maintenance** database logs (`AssetMaintenance` has a `vendor` text field). However, a dedicated, separate database entity or management panel specifically to add/edit vendors is **not** implemented.
+
+### 4. Purchase Orders — **NO** (Not Implemented)
+* **How it works**: New asset procurement is requested by employees and approved by admins under the **Service Requests** panel. However, a full corporate Purchase Order (PO) flow with billing details, purchase invoicing, and requisition sheets is **not** present in this project.
+
+### 5. Notification Center — **YES** (Fully Implemented)
+* **How it works**: Fully integrated in the top-right Navbar (bell icon). It features:
+  * **Real-time Synchronization**: Syncs with the backend via WebSocket connections.
+  * **Audio & Visual Chimes**: Plays a chime notification sound on incoming WebSocket messages.
+  * **Interactive Toast popups**: Clickable popups with quick "View" action triggers.
+  * **Popover Panel**: Allows marking all notifications as read or clearing history.
+
+### 6. Reports Export — **YES** (Fully Implemented)
+* **How it works**: Located in the **Reports & Analytics** page. The **Report Export Hub** allows administrators to export full database registers (`Asset Registry`, `User Directory`, `Allocations List`, `Transfers Ledger`, and `Disposals Archive`) directly into `.xlsx` Excel spreadsheets with a single click.
+
+### 7. Asset Depreciation — **YES** (Fully Implemented)
+* **How it works**: Located at the bottom of the **Reports & Analytics** page. Features an **Asset Depreciation Calculator** supporting:
+  * **Straight-Line (SL)** depreciation calculation.
+  * **Double-Declining Balance (DDB)** depreciation calculation.
+  * Inputs for Purchase Cost, Salvage Value, and Useful Life (Years) to automatically project and render a year-by-year schedule ofStarting Value, Depreciation Expense, Accumulated Depreciation, and Book Value.
